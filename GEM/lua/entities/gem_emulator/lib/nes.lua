@@ -1,14 +1,16 @@
-local mt = gem.nes
+/*local mt = gem.nes
 
 function mt:Restart()
 
 
 	-- Registers
 
-	self.PC -- Program Counter
-	self.SP -- Stack Pointer
+	local self.PC -- Program Counter
+	local self.SP -- Stack Pointer
 
-	self.A -- Accumulator
-	self.X -- X Register
-	self.Y -- Y Register
-	self.S -- Status Register
+	local self.A -- Accumulator
+	local self.X -- X Register
+	local self.Y -- Y Register
+	local self.S -- Status Register
+	
+end*/

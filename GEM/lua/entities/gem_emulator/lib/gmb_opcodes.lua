@@ -6,8 +6,8 @@ local Operators = mt.Operators
 
 --- 16 bit arithmatic/logic functions ---
 function mt:WordInc(R1, R2)
-	R1 = (R1+1) & 0xFF
-	if R1 == 0 then R2 = (R2+1) & 0xFF end
+	R1 = bit.band((R1+1) , 0xFF)
+	if R1 == 0 then R2 = bit.band((R2+1) , 0xFF) end
 	
 	self.PC = self.PC + 1
 	self.Cycle = 8 
@@ -16,8 +16,8 @@ function mt:WordInc(R1, R2)
 end
 
 function mt:WordDec(R1, R2)
-	R1 = (R1-1 )& 0xFF
-	if R1 == 0xFF then R2 = (R2-1) & 0xFF end
+	R1 = bit.band((R1-1 ), 0xFF)
+	if R1 == 0xFF then R2 = bit.band((R2-1) , 0xFF) end
 	
 	self.PC = self.PC + 1
 	self.Cycle = 8
@@ -27,18 +27,18 @@ end
 
 function mt:WordAdd(R1, R2)
 
-	self.Hf = (((self.H) & 0xF) + (R1 & 0xF) + (((self.L + R2) > 0xFF) and 1 or 0)) > 0xF
+	self.Hf = (bit.band((self.H) , 0xF) + (bit.band(R1,0xF)) + (((self.L + R2) > 0xFF) and 1 or 0)) > 0xF
 
 	self.H = self.H + R1
 	self.L = self.L + R2
 
 	if self.L > 0xFF then
 		self.H = self.H + 1
-		self.L = self.L & 0xFF
+		self.L = bit.band(self.L,0xFF)
 	end
 	
 	if self.H > 0xFF then
-		self.H = self.H & 0xFF
+		self.H = bit.band(self.H,0xFF)
 		self.Cf = true
 	else
 		self.Cf = false
@@ -56,9 +56,9 @@ function mt:JumpSign(Val)
 	if Val then
 		local D8 = self:Read(self.PC+1)
 		
-		self.PC = self.PC + ((D8&127)-(D8&128)) + 2
+		self.PC = self.PC + ((bit.band(D8,127))-(bit.band(D8,128))) + 2
 
-		self.PC = self.PC & 0xFFFF
+		self.PC = bit.band(self.PC,0xFFFF)
 
 		self.Cycle = 12
 	else
@@ -69,7 +69,7 @@ end
 
 function mt:Jump(Val)
 	if Val then
-		local A16 = (self:Read(self.PC+2)<<8)|self:Read(self.PC+1)
+		local A16 = bit.bor(bit.lshift(self:Read(self.PC+2),8),self:Read(self.PC+1))
 		
 		self.PC = A16
 		self.Cycle = 16
@@ -81,11 +81,11 @@ end
 
 function mt:Call(Val)
 	if Val then
-		local A16 = (self:Read(self.PC+2)<<8)|self:Read(self.PC+1)
+		local A16 = bit.bor(bit.lshift(self:Read(self.PC+2),8),self:Read(self.PC+1))
 		
 		self.SP = self.SP - 2
-		self:Write(self.SP + 1, ((self.PC+3)&0xFF00)>>8)
-		self:Write(self.SP    , (self.PC+3)&0xFF       )
+		self:Write(self.SP + 1, bit.rshift(bit.band((self.PC+3),0xFF00),8))
+		self:Write(self.SP    , bit.band((self.PC+3),0xFF)      )
 
 		self.PC = A16
 		self.Cycle = 24
@@ -98,7 +98,7 @@ end
 function mt:Return(Val)
 	if Val then
 
-		self.PC = (self:Read(self.SP + 1)<<8) | self:Read(self.SP)
+		self.PC = bit.bor(bit.lshift(self:Read(self.SP + 1),8) , self:Read(self.SP))
 		self.SP = self.SP + 2
 		
 		self.Cycle = 20
@@ -110,8 +110,8 @@ end
 		
 function mt:ResetPC(Addr)
 	self.SP = self.SP - 2
-	self:Write( self.SP + 1, ((self.PC+1) & 0xFF00)>>8 )
-	self:Write( self.SP    , (self.PC+1) & 0xFF )
+	self:Write( self.SP + 1, bit.rshift(bit.band((self.PC+1) , 0xFF00),8) )
+	self:Write( self.SP    , bit.band((self.PC+1) , 0xFF) )
 	
 	self.PC = Addr
 	self.Cycle = 16
@@ -143,12 +143,12 @@ end
 
 function mt:ByteAdd(R1)
 	
-	self.Hf = ((self.A & 0xF) + (R1 & 0xF)) > 0xF
+	self.Hf = ((bit.band(self.A,0xF)) + (bit.band(R1,0xF))) > 0xF
 	
 	self.A = self.A + R1
 	self.Cf = self.A > 0xFF
 	
-	self.A = self.A & 0xFF
+	self.A = bit.band(self.A,0xFF)
 	
 	self.Nf = false
 	self.Zf = self.A == 0
@@ -159,12 +159,12 @@ end
 
 function mt:ByteAdc(R1)
 
-	self.Hf = ((self.A & 0xF) + (R1 & 0x0F) + (self.Cf and 1 or 0)) > 0xF
+	self.Hf = ((bit.band(self.A,0xF)) + (bit.band(R1,0x0F)) + (self.Cf and 1 or 0)) > 0xF
 	
 	self.A = self.A + R1 + (self.Cf and 1 or 0)
 	self.Cf = self.A > 0xFF
 	
-	self.A = self.A & 0xFF
+	self.A = bit.band(self.A,0xFF)
 	
 	self.Nf = false
 	self.Zf = self.A == 0
@@ -174,10 +174,10 @@ function mt:ByteAdc(R1)
 end
 
 function mt:ByteSub(R1)
-	self.Hf = (R1 & 0xF) > (self.A & 0xF) 
+	self.Hf = (bit.band(R1,0xF)) > (bit.band(self.A,0xF)) 
 	self.Cf = R1 > self.A
 	
-	self.A = ( self.A - R1 ) & 0xFF
+	self.A = bit.band(( self.A - R1 ) , 0xFF)
 	
 	self.Zf = self.A == 0
 	self.Nf = true
@@ -191,10 +191,10 @@ function mt:ByteSbc(R1)
 
 	local SubVal = (R1 + (self.Cf and 1 or 0))
 
-	self.Hf = ((R1 & 0xF) + (self.Cf and 1 or 0) ) > (self.A & 0xF)
+	self.Hf = ((bit.band(R1,0xF)) + (self.Cf and 1 or 0) ) > (bit.band(self.A,0xF))
 	self.Cf = SubVal > self.A
 	
-	self.A = ( self.A - SubVal ) & 0xFF
+	self.A = bit.band(( self.A - SubVal ) , 0xFF)
 	
 	self.Zf = self.A == 0
 	self.Nf = true
@@ -205,7 +205,7 @@ end
 
 
 function mt:ByteAnd(R1)
-	self.A = self.A&R1
+	self.A = bit.band(self.A,R1)
 	
 	self.Zf = self.A == 0
 	self.Nf = false
@@ -217,7 +217,7 @@ function mt:ByteAnd(R1)
 end
 
 function mt:ByteXor(R1)
-	self.A = (self.A | R1) & (-1-(self.A & R1))
+	self.A = bit.band((bit.bor(self.A,R1)) , (-1-(bit.band(self.A,R1))))
 	
 	self.Zf = self.A == 0
 	self.Nf = false
@@ -229,7 +229,7 @@ function mt:ByteXor(R1)
 end
 
 function mt:ByteOr(R1)
-	self.A = self.A|R1
+	self.A = bit.bor(self.A,R1)
 	
 	self.Zf = self.A == 0
 	self.Nf = false
@@ -243,10 +243,10 @@ end
 function mt:ByteCmp(R1)
 
 
-	self.Hf = ( R1 & 0xF ) > ( self.A & 0xF )
+	self.Hf = ( bit.band(R1,0xF) ) > ( bit.band(self.A,0xF) )
 	self.Cf = R1 > self.A
 	
-	self.Zf = ((self.A - R1) & 0xFF ) == 0
+	self.Zf = bit.band((self.A - R1) , 0xFF ) == 0
 	self.Nf = true
 	
 	self.PC = self.PC + 1
@@ -256,9 +256,9 @@ end
 
 -- Byte Inc and Dec
 function mt:ByteInc(R1)
-	self.Hf = (R1 & 0xF) == 0xF
+	self.Hf = (bit.band(R1,0xF)) == 0xF
 	
-	R1 = (R1+1) & 0xFF
+	R1 = bit.band((R1+1) , 0xFF)
 	
 	self.Nf = false
 	self.Zf = R1 == 0
@@ -271,9 +271,9 @@ function mt:ByteInc(R1)
 end
 
 function mt:ByteDec(R1)
-	self.Hf = (((R1 - 1) & 0xF ) > (R1 & 0xF))
+	self.Hf = (bit.band((R1 - 1) , 0xF ) > (bit.band(R1,0xF)))
 	
-	R1 = (R1-1) & 0xFF
+	R1 = bit.band((R1-1) , 0xFF)
 	
 	self.Nf = true
 	self.Zf = R1 == 0
@@ -395,12 +395,12 @@ Operators[ 0xFF ] = function( self ) self:ResetPC( 0x38 ) end
 -- Jump to address in HL
 
 Operators[ 0xE9 ] = function( self )
-	self.PC = (self.H<<8)|self.L
+	self.PC = bit.bor((bit.lshift(self.H,8)),self.L)
 	
 	self.Cycle = 4
 end
 
---- 16 BIT ARITHMATIC & LOGIC ---
+--- 16 BIT bit.band(ARITHMATIC,LOGIC) ---
 
 -- Incrimnt 16 Bit Register
 Operators[ 0x03 ] =  function( self ) self.C,self.B = self:WordInc(self.C,self.B) end
@@ -418,23 +418,23 @@ Operators[ 0x3B ] =  function( self ) self.SP = self.SP - 1; self.PC = self.PC +
 Operators[ 0x09 ] =  function( self ) self:WordAdd(self.B, self.C) end
 Operators[ 0x19 ] =  function( self ) self:WordAdd(self.D, self.E) end
 Operators[ 0x29 ] =  function( self ) self:WordAdd(self.H, self.L) end
-Operators[ 0x39 ] =  function( self ) self:WordAdd( ((self.SP>>8) & 0xFF) , (self.SP & 0xFF) ) end -- Split the SP up first
+Operators[ 0x39 ] =  function( self ) self:WordAdd( bit.band((bit.rshift(self.SP,8)) , 0xFF) , (bit.band(self.SP,0xFF)) ) end -- Split the SP up first
 
 -- Add signed immediate to SP
 Operators[ 0xE8 ] =  function( self )
 	local D8 = self:Read(self.PC+1)
-	local S8 = (D8&127)-(D8&128)-- This turns a regular 8 bit unsigned number into a signed number. 
+	local S8 = (bit.band(D8,127))-(bit.band(D8,128))-- This turns a regular 8 bit unsigned number into a signed number. 
 	local SP = self.SP + S8
 
 	if S8 >= 0 then
-		self.Cf = ( (self.SP & 0xFF) + ( S8 ) ) > 0xFF
-		self.Hf = ( (self.SP & 0xF) + ( S8 & 0xF ) ) > 0xF
+		self.Cf = ( (bit.band(self.SP,0xFF)) + ( S8 ) ) > 0xFF
+		self.Hf = ( (bit.band(self.SP,0xF)) + ( bit.band(S8,0xF) ) ) > 0xF
 	else
-		self.Cf = (SP & 0xFF) <= (self.SP & 0xFF)
-		self.Hf = (SP & 0xF) <= (self.SP & 0xF)
+		self.Cf = (bit.band(SP,0xFF)) <= (bit.band(self.SP,0xFF))
+		self.Hf = (bit.band(SP,0xF)) <= (bit.band(self.SP,0xF))
 	end
 
-	self.SP = ( SP & 0xFFFF )
+	self.SP = ( bit.band(SP,0xFFFF) )
 
 	self.Zf = false
 	self.Nf = false
@@ -454,7 +454,7 @@ Operators[ 0x42 ] =  function( self ) self.B = self.D; self.Cycle = 4; self.PC =
 Operators[ 0x43 ] =  function( self ) self.B = self.E; self.Cycle = 4; self.PC = self.PC + 1 end
 Operators[ 0x44 ] =  function( self ) self.B = self.H; self.Cycle = 4; self.PC = self.PC + 1 end
 Operators[ 0x45 ] =  function( self ) self.B = self.L; self.Cycle = 4; self.PC = self.PC + 1 end
-Operators[ 0x46 ] =  function( self ) self.B = self:Read((self.H<<8)|self.L); self.Cycle = 8; self.PC = self.PC + 1 end
+Operators[ 0x46 ] =  function( self ) self.B = self:Read(bit.bor((bit.lshift(self.H,8)),self.L)); self.Cycle = 8; self.PC = self.PC + 1 end
 Operators[ 0x47 ] =  function( self ) self.B = self.A; self.Cycle = 4; self.PC = self.PC + 1 end
 
 -- Load into C
@@ -464,7 +464,7 @@ Operators[ 0x4A ] =  function( self ) self.C = self.D; self.Cycle = 4; self.PC =
 Operators[ 0x4B ] =  function( self ) self.C = self.E; self.Cycle = 4; self.PC = self.PC + 1 end
 Operators[ 0x4C ] =  function( self ) self.C = self.H; self.Cycle = 4; self.PC = self.PC + 1 end
 Operators[ 0x4D ] =  function( self ) self.C = self.L; self.Cycle = 4; self.PC = self.PC + 1 end
-Operators[ 0x4E ] =  function( self ) self.C = self:Read((self.H<<8)|self.L); self.Cycle = 8; self.PC = self.PC + 1 end
+Operators[ 0x4E ] =  function( self ) self.C = self:Read(bit.bor((bit.lshift(self.H,8)),self.L)); self.Cycle = 8; self.PC = self.PC + 1 end
 Operators[ 0x4F ] =  function( self ) self.C = self.A; self.Cycle = 4; self.PC = self.PC + 1 end
 
 -- Load into D
@@ -474,7 +474,7 @@ Operators[ 0x52 ] =  function( self ) self.D = self.D; self.Cycle = 4; self.PC =
 Operators[ 0x53 ] =  function( self ) self.D = self.E; self.Cycle = 4; self.PC = self.PC + 1 end
 Operators[ 0x54 ] =  function( self ) self.D = self.H; self.Cycle = 4; self.PC = self.PC + 1 end
 Operators[ 0x55 ] =  function( self ) self.D = self.L; self.Cycle = 4; self.PC = self.PC + 1 end
-Operators[ 0x56 ] =  function( self ) self.D = self:Read((self.H<<8)|self.L); self.Cycle = 8; self.PC = self.PC + 1 end
+Operators[ 0x56 ] =  function( self ) self.D = self:Read(bit.bor((bit.lshift(self.H,8)),self.L)); self.Cycle = 8; self.PC = self.PC + 1 end
 Operators[ 0x57 ] =  function( self ) self.D = self.A; self.Cycle = 4; self.PC = self.PC + 1 end
 
 -- Load into E
@@ -484,7 +484,7 @@ Operators[ 0x5A ] =  function( self ) self.E = self.D; self.Cycle = 4; self.PC =
 Operators[ 0x5B ] =  function( self ) self.E = self.E; self.Cycle = 4; self.PC = self.PC + 1 end
 Operators[ 0x5C ] =  function( self ) self.E = self.H; self.Cycle = 4; self.PC = self.PC + 1 end
 Operators[ 0x5D ] =  function( self ) self.E = self.L; self.Cycle = 4; self.PC = self.PC + 1 end
-Operators[ 0x5E ] =  function( self ) self.E = self:Read((self.H<<8)|self.L); self.Cycle = 8; self.PC = self.PC + 1 end
+Operators[ 0x5E ] =  function( self ) self.E = self:Read(bit.bor((bit.lshift(self.H,8)),self.L)); self.Cycle = 8; self.PC = self.PC + 1 end
 Operators[ 0x5F ] =  function( self ) self.E = self.A; self.Cycle = 4; self.PC = self.PC + 1 end
 
 -- Load into H
@@ -494,7 +494,7 @@ Operators[ 0x62 ] =  function( self ) self.H = self.D; self.Cycle = 4; self.PC =
 Operators[ 0x63 ] =  function( self ) self.H = self.E; self.Cycle = 4; self.PC = self.PC + 1 end
 Operators[ 0x64 ] =  function( self ) self.H = self.H; self.Cycle = 4; self.PC = self.PC + 1 end
 Operators[ 0x65 ] =  function( self ) self.H = self.L; self.Cycle = 4; self.PC = self.PC + 1 end
-Operators[ 0x66 ] =  function( self ) self.H = self:Read((self.H<<8)|self.L); self.Cycle = 8; self.PC = self.PC + 1 end
+Operators[ 0x66 ] =  function( self ) self.H = self:Read(bit.bor((bit.lshift(self.H,8)),self.L)); self.Cycle = 8; self.PC = self.PC + 1 end
 Operators[ 0x67 ] =  function( self ) self.H = self.A; self.Cycle = 4; self.PC = self.PC + 1 end
 
 -- Load into L
@@ -504,18 +504,18 @@ Operators[ 0x6A ] =  function( self ) self.L = self.D; self.Cycle = 4; self.PC =
 Operators[ 0x6B ] =  function( self ) self.L = self.E; self.Cycle = 4; self.PC = self.PC + 1 end
 Operators[ 0x6C ] =  function( self ) self.L = self.H; self.Cycle = 4; self.PC = self.PC + 1 end
 Operators[ 0x6D ] =  function( self ) self.L = self.L; self.Cycle = 4; self.PC = self.PC + 1 end
-Operators[ 0x6E ] =  function( self ) self.L = self:Read((self.H<<8)|self.L); self.Cycle = 8; self.PC = self.PC + 1 end
+Operators[ 0x6E ] =  function( self ) self.L = self:Read(bit.bor((bit.lshift(self.H,8)),self.L)); self.Cycle = 8; self.PC = self.PC + 1 end
 Operators[ 0x6F ] =  function( self ) self.L = self.A; self.Cycle = 4; self.PC = self.PC + 1 end
 
 -- Load into (HL)
-Operators[ 0x70 ] =  function( self ) self:Write((self.H<<8)|self.L, self.B); self.Cycle = 8; self.PC = self.PC + 1 end
-Operators[ 0x71 ] =  function( self ) self:Write((self.H<<8)|self.L, self.C); self.Cycle = 8; self.PC = self.PC + 1 end
-Operators[ 0x72 ] =  function( self ) self:Write((self.H<<8)|self.L, self.D); self.Cycle = 8; self.PC = self.PC + 1 end
-Operators[ 0x73 ] =  function( self ) self:Write((self.H<<8)|self.L, self.E); self.Cycle = 8; self.PC = self.PC + 1 end
-Operators[ 0x74 ] =  function( self ) self:Write((self.H<<8)|self.L, self.H); self.Cycle = 8; self.PC = self.PC + 1 end
-Operators[ 0x75 ] =  function( self ) self:Write((self.H<<8)|self.L, self.L); self.Cycle = 8; self.PC = self.PC + 1 end
-
-Operators[ 0x77 ] =  function( self ) self:Write((self.H<<8)|self.L, self.A); self.Cycle = 8; self.PC = self.PC + 1 end
+Operators[ 0x70 ] =  function( self ) self:Write(bit.bor(bit.lshift(self.H,8),self.L), self.B); self.Cycle = 8; self.PC = self.PC + 1 end
+Operators[ 0x71 ] =  function( self ) self:Write(bit.bor(bit.lshift(self.H,8),self.L), self.C); self.Cycle = 8; self.PC = self.PC + 1 end
+Operators[ 0x72 ] =  function( self ) self:Write(bit.bor(bit.lshift(self.H,8),self.L), self.D); self.Cycle = 8; self.PC = self.PC + 1 end
+Operators[ 0x73 ] =  function( self ) self:Write(bit.bor(bit.lshift(self.H,8),self.L), self.E); self.Cycle = 8; self.PC = self.PC + 1 end
+Operators[ 0x74 ] =  function( self ) self:Write(bit.bor(bit.lshift(self.H,8),self.L), self.H); self.Cycle = 8; self.PC = self.PC + 1 end
+Operators[ 0x75 ] =  function( self ) self:Write(bit.bor(bit.lshift(self.H,8),self.L), self.L); self.Cycle = 8; self.PC = self.PC + 1 end
+                                                                                              
+Operators[ 0x77 ] =  function( self ) self:Write(bit.bor(bit.lshift(self.H,8),self.L), self.A); self.Cycle = 8; self.PC = self.PC + 1 end
 
 -- Load into A
 Operators[ 0x78 ] =  function( self ) self.A = self.B; self.Cycle = 4; self.PC = self.PC + 1 end
@@ -524,7 +524,7 @@ Operators[ 0x7A ] =  function( self ) self.A = self.D; self.Cycle = 4; self.PC =
 Operators[ 0x7B ] =  function( self ) self.A = self.E; self.Cycle = 4; self.PC = self.PC + 1 end
 Operators[ 0x7C ] =  function( self ) self.A = self.H; self.Cycle = 4; self.PC = self.PC + 1 end
 Operators[ 0x7D ] =  function( self ) self.A = self.L; self.Cycle = 4; self.PC = self.PC + 1 end
-Operators[ 0x7E ] =  function( self ) self.A = self:Read((self.H<<8)|self.L); self.Cycle = 8; self.PC = self.PC + 1 end
+Operators[ 0x7E ] =  function( self ) self.A = self:Read(bit.bor((bit.lshift(self.H,8)),self.L)); self.Cycle = 8; self.PC = self.PC + 1 end
 Operators[ 0x7F ] =  function( self ) self.A = self.A; self.Cycle = 4; self.PC = self.PC + 1 end
 
 
@@ -535,7 +535,7 @@ Operators[ 0x16 ] =  function( self ) self.D = self:Read(self.PC+1); self.Cycle 
 Operators[ 0x1E ] =  function( self ) self.E = self:Read(self.PC+1); self.Cycle = 8; self.PC = self.PC + 2 end
 Operators[ 0x26 ] =  function( self ) self.H = self:Read(self.PC+1); self.Cycle = 8; self.PC = self.PC + 2 end
 Operators[ 0x2E ] =  function( self ) self.L = self:Read(self.PC+1); self.Cycle = 8; self.PC = self.PC + 2 end
-Operators[ 0x36 ] =  function( self ) self:Write((self.H<<8)|self.L, self:Read(self.PC+1)); self.Cycle = 12; self.PC = self.PC + 2 end
+Operators[ 0x36 ] =  function( self ) self:Write(bit.bor((bit.lshift(self.H,8)),self.L), self:Read(self.PC+1)); self.Cycle = 12; self.PC = self.PC + 2 end
 Operators[ 0x3E ] =  function( self ) self.A = self:Read(self.PC+1); self.Cycle = 8; self.PC = self.PC + 2 end
 
 -- The wierd 8 bit loads
@@ -549,7 +549,7 @@ Operators[ 0xF2 ] = function( self ) self.A = self:Read( 0xFF00 + self.C ); self
 
 -- Load A into immediate addres (A16) or visa-versa
 Operators[ 0xEA ] = function( self )
-	local A16 = (self:Read(self.PC+2)<<8)|self:Read(self.PC+1)
+	local A16 = bit.bor(bit.lshift(self:Read(self.PC+2),8),self:Read(self.PC+1))
 	self:Write( A16, self.A)
 	
 	self.Cycle = 16
@@ -557,7 +557,7 @@ Operators[ 0xEA ] = function( self )
 end
 
 Operators[ 0xFA ] = function( self )
-	local A16 = (self:Read(self.PC+2)<<8)|self:Read(self.PC+1)
+	local A16 = bit.bor(bit.lshift(self:Read(self.PC+2),8),self:Read(self.PC+1))
 
 	self.A = self:Read( A16 )
 	
@@ -566,7 +566,7 @@ Operators[ 0xFA ] = function( self )
 end
 
 Operators[ 0x02 ] = function( self )
-	local A16 = (self.B<<8)|self.C
+	local A16 = bit.bor((bit.lshift(self.B,8)),self.C)
 	self:Write( A16, self.A )
 
 	self.Cycle = 8
@@ -574,7 +574,7 @@ Operators[ 0x02 ] = function( self )
 end
 
 Operators[ 0x12 ] = function( self )
-	local A16 = (self.D<<8)|self.E
+	local A16 = bit.bor((bit.lshift(self.D,8)),self.E)
 	self:Write( A16, self.A )
 
 	self.Cycle = 8
@@ -583,12 +583,12 @@ end
 
 Operators[ 0x22 ] = function( self )
 
-	self:Write( (self.H<<8)|self.L, self.A )
+	self:Write( bit.bor((bit.lshift(self.H,8)),self.L), self.A )
 
 	self.L = self.L + 1
 	if self.L > 0xFF then
-		self.L = self.L & 0xFF
-		self.H = (self.H + 1) & 0xFF
+		self.L = bit.band(self.L,0xFF)
+		self.H = bit.band((self.H + 1) , 0xFF)
 	end
 
 
@@ -598,12 +598,12 @@ end
 
 Operators[ 0x32 ] = function( self )
 
-	self:Write( (self.H<<8)|self.L, self.A )
+	self:Write( bit.bor((bit.lshift(self.H,8)),self.L), self.A )
 
 	self.L = self.L - 1
 	if self.L < 0 then
-		self.L = self.L & 0xFF
-		self.H = (self.H - 1) & 0xFF
+		self.L = bit.band(self.L,0xFF)
+		self.H = bit.band((self.H - 1) , 0xFF)
 	end
 
 	self.Cycle = 8
@@ -612,7 +612,7 @@ end
 
 
 Operators[ 0x0A ] = function( self )
-	local A16 = (self.B<<8)|self.C
+	local A16 = bit.bor((bit.lshift(self.B,8)),self.C)
 	self.A = self:Read( A16 )
 
 	self.Cycle = 8
@@ -620,7 +620,7 @@ Operators[ 0x0A ] = function( self )
 end
 
 Operators[ 0x1A ] = function( self )
-	local A16 = (self.D<<8)|self.E
+	local A16 = bit.bor((bit.lshift(self.D,8)),self.E)
 	self.A = self:Read( A16 )
 
 	self.Cycle = 8
@@ -629,12 +629,12 @@ end
 
 Operators[ 0x2A ] = function( self )
 
-	self.A = self:Read( (self.H<<8)|self.L )
+	self.A = self:Read( bit.bor((bit.lshift(self.H,8)),self.L ))
 
 	self.L = self.L + 1
 	if self.L > 0xFF then
-		self.L = self.L & 0xFF
-		self.H = (self.H + 1) & 0xFF
+		self.L = bit.band(self.L,0xFF)
+		self.H = bit.band((self.H + 1) , 0xFF)
 	end
 
 	self.Cycle = 8
@@ -643,12 +643,12 @@ end
 
 Operators[ 0x3A ] = function( self )
 
-	self.A = self:Read( (self.H<<8)|self.L )
+	self.A = self:Read( bit.bor((bit.lshift(self.H,8)),self.L) )
 
 	self.L = self.L - 1
 	if self.L < 0 then
-		self.L = self.L & 0xFF
-		self.H = (self.H - 1) & 0xFF
+		self.L = bit.band(self.L,0xFF)
+		self.H = bit.band((self.H - 1) , 0xFF)
 	end
 
 	self.Cycle = 8
@@ -666,7 +666,7 @@ Operators[ 0x82 ] = function( self ) self:ByteAdd(self.D) end
 Operators[ 0x83 ] = function( self ) self:ByteAdd(self.E) end
 Operators[ 0x84 ] = function( self ) self:ByteAdd(self.H) end
 Operators[ 0x85 ] = function( self ) self:ByteAdd(self.L) end
-Operators[ 0x86 ] = function( self ) self:ByteAdd( self:Read( (self.H<<8)|self.L) ); self.Cycle = 8 end
+Operators[ 0x86 ] = function( self ) self:ByteAdd( self:Read( bit.bor((bit.lshift(self.H,8)),self.L)) ); self.Cycle = 8 end
 Operators[ 0x87 ] = function( self ) self:ByteAdd(self.A) end
 
 -- ADD with Carry (ADC)
@@ -676,7 +676,7 @@ Operators[ 0x8A ] = function( self ) self:ByteAdc(self.D) end
 Operators[ 0x8B ] = function( self ) self:ByteAdc(self.E) end
 Operators[ 0x8C ] = function( self ) self:ByteAdc(self.H) end
 Operators[ 0x8D ] = function( self ) self:ByteAdc(self.L) end
-Operators[ 0x8E ] = function( self ) self:ByteAdc( self:Read( (self.H<<8)|self.L ) ); self.Cycle = 8 end
+Operators[ 0x8E ] = function( self ) self:ByteAdc( self:Read( bit.bor((bit.lshift(self.H,8)),self.L)) ); self.Cycle = 8 end
 Operators[ 0x8F ] = function( self ) self:ByteAdc(self.A) end
 
 -- SUB
@@ -686,7 +686,7 @@ Operators[ 0x92 ] = function( self ) self:ByteSub(self.D) end
 Operators[ 0x93 ] = function( self ) self:ByteSub(self.E) end
 Operators[ 0x94 ] = function( self ) self:ByteSub(self.H) end
 Operators[ 0x95 ] = function( self ) self:ByteSub(self.L) end
-Operators[ 0x96 ] = function( self ) self:ByteSub( self:Read( (self.H<<8)|self.L ) ); self.Cycle = 8 end
+Operators[ 0x96 ] = function( self ) self:ByteSub( self:Read( bit.bor((bit.lshift(self.H,8)),self.L)) ); self.Cycle = 8 end
 Operators[ 0x97 ] = function( self ) self:ByteSub(self.A) end
 
 -- SUB with Borrow (ABC)
@@ -696,7 +696,7 @@ Operators[ 0x9A ] = function( self ) self:ByteSbc(self.D) end
 Operators[ 0x9B ] = function( self ) self:ByteSbc(self.E) end
 Operators[ 0x9C ] = function( self ) self:ByteSbc(self.H) end
 Operators[ 0x9D ] = function( self ) self:ByteSbc(self.L) end
-Operators[ 0x9E ] = function( self ) self:ByteSbc( self:Read( (self.H<<8)|self.L ) ); self.Cycle = 8 end
+Operators[ 0x9E ] = function( self ) self:ByteSbc( self:Read( bit.bor((bit.lshift(self.H,8)),self.L)) ); self.Cycle = 8 end
 Operators[ 0x9F ] = function( self ) self:ByteSbc(self.A) end
 
 -- AND
@@ -706,7 +706,7 @@ Operators[ 0xA2 ] = function( self ) self:ByteAnd(self.D) end
 Operators[ 0xA3 ] = function( self ) self:ByteAnd(self.E) end
 Operators[ 0xA4 ] = function( self ) self:ByteAnd(self.H) end
 Operators[ 0xA5 ] = function( self ) self:ByteAnd(self.L) end
-Operators[ 0xA6 ] = function( self ) self:ByteAnd( self:Read((self.H<<8)|self.L) ); self.Cycle = 8 end
+Operators[ 0xA6 ] = function( self ) self:ByteAnd( self:Read( bit.bor((bit.lshift(self.H,8)),self.L)) ); self.Cycle = 8 end
 Operators[ 0xA7 ] = function( self ) self:ByteAnd(self.A) end
 
 -- XOR
@@ -716,7 +716,7 @@ Operators[ 0xAA ] = function( self ) self:ByteXor(self.D) end
 Operators[ 0xAB ] = function( self ) self:ByteXor(self.E) end
 Operators[ 0xAC ] = function( self ) self:ByteXor(self.H) end
 Operators[ 0xAD ] = function( self ) self:ByteXor(self.L) end
-Operators[ 0xAE ] = function( self ) self:ByteXor( self:Read((self.H<<8)|self.L) ); self.Cycle = 8 end
+Operators[ 0xAE ] = function( self ) self:ByteXor( self:Read( bit.bor((bit.lshift(self.H,8)),self.L)) ); self.Cycle = 8 end
 Operators[ 0xAF ] = function( self ) self:ByteXor(self.A) end
 
 -- OR
@@ -726,7 +726,7 @@ Operators[ 0xB2 ] = function( self ) self:ByteOr(self.D) end
 Operators[ 0xB3 ] = function( self ) self:ByteOr(self.E) end
 Operators[ 0xB4 ] = function( self ) self:ByteOr(self.H) end
 Operators[ 0xB5 ] = function( self ) self:ByteOr(self.L) end
-Operators[ 0xB6 ] = function( self ) self:ByteOr( self:Read((self.H<<8)|self.L) ); self.Cycle = 8 end
+Operators[ 0xB6 ] = function( self ) self:ByteOr( self:Read( bit.bor((bit.lshift(self.H,8)),self.L)) ); self.Cycle = 8 end
 Operators[ 0xB7 ] = function( self ) self:ByteOr(self.A) end
 
 -- CMP
@@ -736,7 +736,7 @@ Operators[ 0xBA ] = function( self ) self:ByteCmp(self.D) end
 Operators[ 0xBB ] = function( self ) self:ByteCmp(self.E) end
 Operators[ 0xBC ] = function( self ) self:ByteCmp(self.H) end
 Operators[ 0xBD ] = function( self ) self:ByteCmp(self.L) end
-Operators[ 0xBE ] = function( self ) self:ByteCmp( self:Read((self.H<<8)|self.L) ); self.Cycle = 8 end
+Operators[ 0xBE ] = function( self ) self:ByteCmp( self:Read( bit.bor((bit.lshift(self.H,8)),self.L)) ); self.Cycle = 8 end
 Operators[ 0xBF ] = function( self ) self:ByteCmp(self.A) end
 
 
@@ -774,9 +774,9 @@ Operators[ 0x1C ] = function( self ) self.E = self:ByteInc(self.E) end
 Operators[ 0x24 ] = function( self ) self.H = self:ByteInc(self.H) end
 Operators[ 0x2C ] = function( self ) self.L = self:ByteInc(self.L) end
 Operators[ 0x34 ] = function( self )
-	local R1 = self:Read((self.H<<8)|self.L)
+	local R1 = self:Read(bit.bor((bit.lshift(self.H,8)),self.L))
 	local R1 = self:ByteInc(R1)
-	self:Write( (self.H<<8)|self.L, R1 )
+	self:Write( bit.bor((bit.lshift(self.H,8)),self.L), R1 )
 	
 	self.Cycle = 12
 end
@@ -792,9 +792,9 @@ Operators[ 0x1D ] = function( self ) self.E = self:ByteDec(self.E) end
 Operators[ 0x25 ] = function( self ) self.H = self:ByteDec(self.H) end
 Operators[ 0x2D ] = function( self ) self.L = self:ByteDec(self.L) end
 Operators[ 0x35 ] = function( self )
-	local R1 = self:Read((self.H<<8)|self.L)
+	local R1 = self:Read(bit.bor((bit.lshift(self.H,8)),self.L))
 	local R1 = self:ByteDec(R1)
-	self:Write( (self.H<<8)|self.L, R1 )
+	self:Write( bit.bor((bit.lshift(self.H,8)),self.L), R1 )
 	
 	self.Cycle = 12
 end
@@ -810,10 +810,10 @@ Operators[ 0xD5 ] = function( self ) self:StackPush(self.D, self.E) end
 Operators[ 0xE5 ] = function( self ) self:StackPush(self.H, self.L) end
 Operators[ 0xF5 ] = function( self )
 	self.F = 0
-	if self.Cf then self.F = self.F|16 end
-	if self.Hf then self.F = self.F|32 end
-	if self.Nf then self.F = self.F|64 end
-	if self.Zf then self.F = self.F|128 end
+	if self.Cf then self.F = bit.bor(self.F,16) end
+	if self.Hf then self.F = bit.bor(self.F,32) end
+	if self.Nf then self.F = bit.bor(self.F,64) end
+	if self.Zf then self.F = bit.bor(self.F,128) end
 	
 	self:StackPush(self.A, self.F)
 end
@@ -825,10 +825,10 @@ Operators[ 0xE1 ] = function( self ) self.H, self.L = self:StackPop() end
 Operators[ 0xF1 ] = function( self )
 	self.A, self.F = self:StackPop()
 	
-	if self.F&16 == 16 then self.Cf = true else self.Cf = false end
-	if self.F&32 == 32 then self.Hf = true else self.Hf = false end
-	if self.F&64 == 64 then self.Nf = true else self.Nf = false end
-	if self.F&128 == 128 then self.Zf = true else self.Zf = false end
+	if bit.band(self.F,16) == 16 then self.Cf = true else self.Cf = false end
+	if bit.band(self.F,32) == 32 then self.Hf = true else self.Hf = false end
+	if bit.band(self.F,64) == 64 then self.Nf = true else self.Nf = false end
+	if bit.band(self.F,128) == 128 then self.Zf = true else self.Zf = false end
 end
 
 
@@ -859,7 +859,7 @@ Operators[ 0x21 ] = function( self )
 end
 
 Operators[ 0x31 ] = function( self ) 
-	self.SP = ( self:Read( self.PC + 2 ) << 8 ) | self:Read(self.PC + 1)
+	self.SP = bit.bor(bit.lshift( self:Read( self.PC + 2 ) , 8 ) , self:Read(self.PC + 1))
 	
 	self.PC = self.PC + 3
 	self.Cycle = 12
@@ -869,9 +869,9 @@ end
 -- Save SP at 16 bit immeiate address
 Operators[ 0x08 ] = function( self ) 
 
-	local A16 = (self:Read(self.PC+2)<<8)|self:Read(self.PC+1)
-	local SPhi = (self.SP&0xFF00)>>8
-	local SPlo = ( self.SP & 0xFF )
+	local A16 = bit.bor(bit.lshift(self:Read(self.PC+2),8),self:Read(self.PC+1))
+	local SPhi = bit.rshift((bit.band(self.SP,0xFF00)),8)
+	local SPlo = ( bit.band(self.SP,0xFF) )
 	
 	self:Write(A16,SPlo)
 	self:Write(A16+1,SPhi)
@@ -883,22 +883,22 @@ end
 -- Load SP + signed immediate into HL
 Operators[ 0xF8 ] = function( self ) 
 	local D8 = self:Read(self.PC+1)
-	local S8 = ((D8&127)-(D8&128))
+	local S8 = ((bit.band(D8,127))-(bit.band(D8,128)))
 	local SP = self.SP + S8 
 	
 	if S8 >= 0 then
-		self.Cf = ( (self.SP & 0xFF) + ( S8 ) ) > 0xFF
-		self.Hf = ( (self.SP & 0xF) + ( S8 & 0xF ) ) > 0xF
+		self.Cf = ( (bit.band(self.SP,0xFF)) + ( S8 ) ) > 0xFF
+		self.Hf = ( (bit.band(self.SP,0xF)) + ( bit.band(S8,0xF) ) ) > 0xF
 	else
-		self.Cf = (SP & 0xFF) <= (self.SP & 0xFF)
-		self.Hf = (SP & 0xF) <= (self.SP & 0xF)
+		self.Cf = (bit.band(SP,0xFF)) <= (bit.band(self.SP,0xFF))
+		self.Hf = (bit.band(SP,0xF)) <= (bit.band(self.SP,0xF))
 	end
 
 	self.Zf = false
 	self.Nf = false
 	
-	self.H = (SP & 0xFF00)>>8
-	self.L = SP & 0xFF
+	self.H = bit.rshift((bit.band(SP,0xFF00)),8)
+	self.L = bit.band(SP,0xFF)
 	
 	self.Cycle = 12
 	self.PC = self.PC + 2
@@ -906,7 +906,7 @@ end
 
 -- Load HL into SP
 Operators[ 0xF9 ] = function( self ) 
-	self.SP = (self.H<<8)|self.L
+	self.SP = bit.bor((bit.lshift(self.H,8)),self.L)
 	
 	self.Cycle = 8
 	self.PC = self.PC + 1
@@ -938,25 +938,25 @@ Operators[ 0x27 ] = function( self )
 
 
 	if self.Nf then
-		if (self.A & 0x0F) > 9 or self.Hf then
+		if (bit.band(self.A,0x0F)) > 9 or self.Hf then
 			self.A = (self.A - 6)
 			
-			if (self.A & 0xF0) == 0xF0 then self.Cf = true end
+			if (bit.band(self.A,0xF0)) == 0xF0 then self.Cf = true end
 		end
 		
-		if (self.A & 0xF0) > 0x90 or self.Cf then self.A = (self.A - 0x60); self.Cf = true end
+		if (bit.band(self.A,0xF0)) > 0x90 or self.Cf then self.A = (self.A - 0x60); self.Cf = true end
 
 	else
-		if (self.A & 0xF) > 9 or self.Hf then
+		if (bit.band(self.A,0xF)) > 9 or self.Hf then
 			self.A = (self.A + 0x06)
 		end
 		
-		if (self.A & 0xF0) > 0x90 or self.Cf then self.A = (self.A + 0x60); self.Cf = true end
+		if (bit.band(self.A,0xF0)) > 0x90 or self.Cf then self.A = (self.A + 0x60); self.Cf = true end
 	end
 
 	--self.Cf = self.A > 0xFF
 
-	self.A = self.A & 0xFF
+	self.A = bit.band(self.A,0xFF)
 
 	self.Zf = self.A == 0
 	self.Hf = false	
@@ -971,9 +971,9 @@ end
 --- ROTATES
 
 Operators[ 0x17 ] = function( self ) 
-	local Bit7 = self.A&128 == 128
+	local Bit7 = bit.band(self.A,128) == 128
 	
-	self.A = ((self.A<<1) & 0xFF) | (self.Cf and 1 or 0)
+	self.A = bit.bor(bit.band((bit.lshift(self.A,1)) , 0xFF) , (self.Cf and 1 or 0))
 
 	self.Cf = Bit7
 	self.Zf = false
@@ -986,9 +986,9 @@ Operators[ 0x17 ] = function( self )
 end
 
 Operators[ 0x1F ] = function( self )
-	local Bit0 = self.A&1 == 1
+	local Bit0 = bit.band(self.A,1) == 1
 
-	self.A = ((self.A>>1) & 0xFF) | (self.Cf and 128 or 0)
+	self.A = bit.bor(bit.band((bit.rshift(self.A,1)) , 0xFF) , (self.Cf and 128 or 0))
 
 	self.Cf = Bit0
 	self.Zf = false
@@ -1000,9 +1000,9 @@ Operators[ 0x1F ] = function( self )
 end
 
 Operators[ 0x07 ] = function( self )
-	local Bit7 = self.A&128 == 128
+	local Bit7 = bit.band(self.A,128) == 128
 
-	self.A = ((self.A<<1) & 0xFF) | (Bit7 and 1 or 0)
+	self.A = bit.bor(bit.band((bit.lshift(self.A,1)) , 0xFF) , (Bit7 and 1 or 0))
 
 	self.Cf = Bit7
 	self.Zf = false
@@ -1014,9 +1014,9 @@ Operators[ 0x07 ] = function( self )
 end
 
 Operators[ 0x0F ] = function( self )
-	local Bit0 = self.A&1 == 1
+	local Bit0 = bit.band(self.A,1) == 1
 
-	self.A = ((self.A>>1) & 0xFF) | (Bit0 and 128 or 0)
+	self.A = bit.bor(bit.band((bit.rshift(self.A,1)) , 0xFF) , (Bit0 and 128 or 0))
 
 	self.Cf = Bit0
 	self.Zf = false
