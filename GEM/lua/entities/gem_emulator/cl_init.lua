@@ -122,15 +122,15 @@ end
 -- Desc: Creates the necessary folders if they don't exist
 ----------------------------------------------------------------------
 function ENT:CreateFolders()
-	if not file.IsDir( "gem_emulator" ) then
+	if not file.IsDir( "gem_emulator","DATA" ) then
 		file.CreateDir( "gem_emulator" )
 	end
 	
-	if not file.IsDir( "gem_emulator/8080" ) then
+	if not file.IsDir( "gem_emulator/8080","DATA" ) then
 		file.CreateDir( "gem_emulator/8080" )
 	end
 	
-	if not file.IsDir( "gem_emulator/GBZ80" ) then
+	if not file.IsDir( "gem_emulator/GBZ80","DATA" ) then
 		file.CreateDir( "gem_emulator/GBZ80" )
 	end
 end
@@ -144,7 +144,7 @@ function ENT:ListROMs( fld )
 
 	local folder = "gem_emulator/" .. fld
 	
-	local files = file.Find( folder .. "/*.txt" )
+	local files = file.Find( folder .. "/*.txt", 'DATA' )
 	
 	if #files == 0 then
 		self.buttons = { y = 15 + 25 * 2, { text = " Back ", OnPress = self.LoadMainMenu } }
@@ -361,8 +361,8 @@ function ENT:Draw()
 	
 		self.Emulator:Draw()
 
-		local OldTex = matscreen:GetMaterialTexture("$basetexture")
-		matscreen:SetMaterialTexture("$basetexture", self.Emulator.RTMaterial)
+		local OldTex = matscreen:GetTexture("$basetexture")
+		matscreen:SetTexture("$basetexture", self.Emulator.RTMaterial)
 		
 		local pos, ang, scale = draw_data[1], draw_data[2], draw_data[3]
 		cam_Start3D2D( self:LocalToWorld( pos ), self:LocalToWorldAngles( ang ), scale )
@@ -373,7 +373,7 @@ function ENT:Draw()
 			
 		cam_End3D2D()
 		
-		matscreen:SetMaterialTexture("$basetexture", OldTex)
+		matscreen:SetTexture("$basetexture", OldTex)
 	else
 		local pos, ang, scale = draw_data[1], draw_data[2], draw_data[3]
 		cam_Start3D2D( self:LocalToWorld( pos ), self:LocalToWorldAngles( ang ), scale )
@@ -455,12 +455,141 @@ end
 -- Name: Think
 -- Desc: Handles the touch screen among other things
 ----------------------------------------------------------------------
-local keys = {}
-for k,v in pairs( _E ) do
-	if k:sub(1,4) == "KEY_" then
-		keys[k] = v
-	end
-end
+local keys = {
+	['KEY_1'] =	KEY_1 ,
+	['KEY_2'] = KEY_2 ,
+	['KEY_3'] = KEY_3 ,
+	['KEY_4'] = KEY_4 ,
+	['KEY_5'] = KEY_5 ,
+	['KEY_6'] = KEY_6 ,
+	['KEY_7'] = KEY_7 ,
+	['KEY_8'] = KEY_8 ,
+	['KEY_9'] = KEY_9 ,
+	['KEY_A'] = KEY_A ,
+	['KEY_APOSTROPHE'] = KEY_APOSTROPHE ,
+	['KEY_APP'] = KEY_APP ,
+	['KEY_B'] = KEY_B ,
+	['KEY_BACKQUOTE'] = KEY_BACKQUOTE ,
+	['KEY_BACKSLASH'] = KEY_BACKSLASH ,
+	['KEY_BACKSPACE'] = KEY_BACKSPACE ,
+	['KEY_BREAK'] = KEY_BREAK ,
+	['KEY_C'] = KEY_C ,
+	['KEY_CAPSLOCK'] = KEY_CAPSLOCK ,
+	['KEY_CAPSLOCKTOGG'] = KEY_CAPSLOCKTOGG ,
+	['KEY_COMMA'] = KEY_COMMA ,
+	['KEY_COUNT'] = KEY_COUNT ,
+	['KEY_D'] = KEY_D ,
+	['KEY_DELETE'] = KEY_DELETE ,
+	['KEY_DOWN'] = KEY_DOWN ,
+	['KEY_E'] = KEY_E ,
+	['KEY_END']	= KEY_END ,
+	['KEY_ENTER'] = KEY_ENTER ,
+	['KEY_EQUAL'] = KEY_EQUAL ,
+	['KEY_ESCAPE'] = KEY_ESCAPE ,
+	['KEY_F'] = KEY_F ,
+	['KEY_F1'] = KEY_F1 ,
+	['KEY_F10'] = KEY_F10 ,
+	['KEY_F11']	= KEY_F11 ,
+	['KEY_F12'] = KEY_F12 ,
+	['KEY_F2'] = KEY_F2 ,
+	['KEY_F3'] = KEY_F3 ,
+	['KEY_F4'] = KEY_F4 ,
+	['KEY_F5'] = KEY_F5 ,
+	['KEY_F6'] = KEY_F6 ,
+	['KEY_F7'] = KEY_F7 ,
+	['KEY_F8'] = KEY_F8 ,
+	['KEY_F9'] = KEY_F9 ,
+	['KEY_FIRST'] = KEY_FIRST ,
+	['KEY_G'] = KEY_G ,
+	['KEY_H'] = KEY_H ,
+	['KEY_HOME'] = KEY_HOME ,
+	['KEY_I'] = KEY_I ,
+	['KEY_INSERT'] = KEY_INSERT ,
+	['KEY_J'] = KEY_J ,
+	['KEY_K'] = KEY_K ,
+	['KEY_L'] = KEY_L ,
+	['KEY_LALT'] = KEY_LALT ,
+	['KEY_LAST'] = KEY_LAST ,
+	['KEY_LBRACKET'] = KEY_LBRACKET ,
+	['KEY_LCONTROL'] = KEY_LCONTROL ,
+	['KEY_LEFT'] = KEY_LEFT ,
+	['KEY_LSHIFT'] = KEY_LSHIFT ,
+	['KEY_LWIN'] = KEY_LWIN ,
+	['KEY_M'] = KEY_M ,
+	['KEY_MINUS'] = KEY_MINUS ,
+	['KEY_N'] = KEY_N ,
+	['KEY_NONE'] = KEY_N ,
+	['KEY_NUMLOCK']	= KEY_NUMLOCK ,
+	['KEY_NUMLOCKTOGGLE'] = KEY_NUMLOCKTOGGLE ,
+	['KEY_O'] = KEY_O ,
+	['KEY_P'] = KEY_P ,
+	['KEY_PAD_0'] = KEY_PAD_0 ,
+	['KEY_PAD_1'] = KEY_PAD_1 ,
+	['KEY_PAD_2'] = KEY_PAD_2 ,
+	['KEY_PAD_3'] = KEY_PAD_3 ,
+	['KEY_PAD_4'] = KEY_PAD_4 ,
+	['KEY_PAD_5'] = KEY_PAD_5 ,
+	['KEY_PAD_6'] = KEY_PAD_6 ,
+	['KEY_PAD_7'] = KEY_PAD_7 ,
+	['KEY_PAD_8'] = KEY_PAD_8 ,
+	['KEY_PAD_9'] = KEY_PAD_9 ,
+	['KEY_PAD_DECIMAL'] = KEY_PAD_DECIMAL ,
+	['KEY_PAD_DIVIDE'] = KEY_PAD_DIVIDE ,
+	['KEY_PAD_ENTER'] = KEY_PAD_ENTER ,
+	['KEY_PAD_MINUS'] = KEY_PAD_MINUS ,
+	['KEY_PAD_MULTIPLY'] = KEY_PAD_MULTIPLY ,
+	['KEY_PAD_PLUS'] = KEY_PAD_PLUS ,
+	['KEY_PAGEDOWN'] = KEY_PAGEDOWN ,
+	['KEY_PAGEUP'] = KEY_PAGEUP ,
+	['KEY_PERIOD'] = KEY_PERIOD ,
+	['KEY_Q'] = KEY_Q ,
+	['KEY_R'] = KEY_R ,
+	['KEY_RALT'] = KEY_RALT ,
+	['KEY_RBRACKET'] = KEY_RBRACKET ,
+	['KEY_RCONTROL'] = KEY_RCONTROL ,
+	['KEY_RIGHT'] = KEY_RIGHT ,
+	['KEY_RSHIFT'] = KEY_RSHIFT ,
+	['KEY_RWIN'] = KEY_RWIN ,
+	['KEY_S'] = KEY_S ,
+	['KEY_SCROLLLOCK'] = KEY_SCROLLLOCK ,
+	['KEY_SCROLLLOCKTOGGLE'] = KEY_SCROLLLOCKTOGGLE ,
+	['KEY_SEMICOLON'] = KEY_SEMICOLON ,
+	['KEY_SLASH'] = KEY_SLASH ,
+	['KEY_SPACE'] = EY_SPACE ,
+	['KEY_T'] = KEY_T ,
+	['KEY_TAB'] = KEY_TAB ,
+	['KEY_U'] = KEY_U ,
+	['KEY_UP'] = KEY_UP ,
+	['KEY_V'] = KEY_V ,
+	['KEY_W'] = KEY_W ,
+	['KEY_X'] = KEY_X ,
+	['KEY_XBUTTON_A'] = KEY_XBUTTON_A ,
+	['KEY_XBUTTON_B'] = KEY_XBUTTON_B ,
+	['KEY_XBUTTON_BACK'] = KEY_XBUTTON_BACK ,
+	['KEY_XBUTTON_DOWN'] = KEY_XBUTTON_DOWN ,
+	['KEY_XBUTTON_LEFT'] = KEY_XBUTTON_LEFT ,
+	['KEY_XBUTTON_LEFT_SHOULDER'] = KEY_XBUTTON_LEFT_SHOULDER ,
+	['KEY_XBUTTON_LTRIGGER'] = KEY_XBUTTON_LTRIGGER ,
+	['KEY_XBUTTON_RIGHT'] = KEY_XBUTTON_RIGHT ,
+	['KEY_XBUTTON_RIGHT_SHOULDER'] = KEY_XBUTTON_RIGHT_SHOULDER ,
+	['KEY_XBUTTON_RTRIGGER'] = KEY_XBUTTON_RTRIGGER ,
+	['KEY_XBUTTON_START'] = KEY_XBUTTON_START ,
+	['KEY_XBUTTON_STICK1'] = KEY_XBUTTON_STICK1 ,
+	['KEY_XBUTTON_STICK2'] = KEY_XBUTTON_STICK2 ,
+	['KEY_XBUTTON_UP'] = KEY_XBUTTON_UP ,
+	['KEY_XBUTTON_X'] = KEY_XBUTTON_X ,
+	['KEY_XBUTTON_Y'] = KEY_XBUTTON_Y ,
+	['KEY_XSTICK1_DOWN'] = KEY_XSTICK1_DOWN ,
+	['KEY_XSTICK1_LEFT'] = KEY_XSTICK1_LEFT ,
+	['KEY_XSTICK1_RIGHT'] = KEY_XSTICK1_RIGHT ,
+	['KEY_XSTICK1_UP'] = KEY_XSTICK1_UP ,
+	['KEY_XSTICK2_DOWN'] = KEY_XSTICK2_DOWN ,
+	['KEY_XSTICK2_LEFT'] = KEY_XSTICK2_LEFT ,
+	['KEY_XSTICK2_RIGHT'] = KEY_XSTICK2_RIGHT ,
+	['KEY_XSTICK2_UP'] = KEY_XSTICK2_UP ,
+	['KEY_Y'] = KEY_Y ,
+	['KEY_Z'] = KEY_Z
+}
 
 local validKeys = { A = true, B = true, Start = true, Select = true, Up = true, Left = true, Down = true, Right = true, Exit = true }
 
@@ -468,7 +597,6 @@ local validKeys = { A = true, B = true, Start = true, Select = true, Up = true, 
 function ENT:Think()
 	if not self:GetPly() then return end -- Wait until the owner has been transferred
 	if not self.errordata and self.Emulator then self.Emulator:Think() end
-	
 	if self:GetPly() ~= LocalPlayer() then return end -- Only do below actions for the owner of the screen
 	
 	if self.Emulator and not self.errordata then
@@ -548,7 +676,7 @@ function ENT:ExtractKeyBinds()
 	self.Keys = {}
 	self.KeyPresses = {}
 	
-	if not file.IsDir( "gem_emulator" ) or not file.Exists( "gem_emulator/keybinds.txt" ) then
+	if not file.IsDir( "gem_emulator", 'DATA' ) or not file.Exists( "gem_emulator/keybinds.txt", 'IsDir' ) then
 		self.Keys.A 		= KEY_H
 		self.Keys.B 		= KEY_J
 		self.Keys.Start 	= KEY_ENTER
