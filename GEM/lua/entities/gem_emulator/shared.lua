@@ -49,7 +49,7 @@ local function LoadLib()
 	end
 
 	local folder = "entities/gem_emulator/lib/"
-	local entries = file.FindInLua( folder .. "*.lua" )
+	local entries = file.Find( folder .. "*.lua", 'LUA' )
 	for _, entry in ipairs( entries ) do
 		if entry:sub(1,3) == "sv_" then
 			if SERVER then
@@ -57,12 +57,12 @@ local function LoadLib()
 			end
 		elseif entry:sub(1,3) == "sh_" then
 			if SERVER then
-				AddCSLuaFile( folder .. entry )
+				--AddCSLuaFile( folder .. entry )
 			end
 			include( folder .. entry )
 		elseif entry ~= "core.lua" then
 			if SERVER then
-				AddCSLuaFile( folder .. entry )
+				--AddCSLuaFile( folder .. entry )
 			else
 				include( folder .. entry )
 			end
@@ -81,7 +81,7 @@ concommand.Add( "gem_emulator_reload", function( ply, cmd, args )
 end )
 
 function ENT:Enter()
-	--[[
+	
 	if CLIENT then
 		RunConsoleCommand( "gem_emulator_enter" )
 		self:CreateTextEntry()
@@ -98,10 +98,11 @@ function ENT:Enter()
 			self:GetPly():DrawViewModel( false )
 		end
 	end
-	]]
+	
 end
+
 function ENT:Exit()
-	--[[
+	
 	if CLIENT then
 		RunConsoleCommand( "gem_emulator_leave" )
 		self:RemoveTextEntry()
@@ -131,7 +132,7 @@ function ENT:Exit()
 			self:GetPly():DrawViewModel( true )
 		end
 	end
-	]]
+	
 end
 
 if SERVER then
