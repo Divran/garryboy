@@ -26,7 +26,7 @@ function mt:Restart()
 
 
 	
-	-- Memory & Cart Flags
+	-- bit.band(Memory,Cart) Flags
 	self.EnableBios = true 	-- Enables the Bios, disabled after the bios is used
 	self.CartMBCMode = 3	-- 0 for ROM mode, 1 for MBC1, 2 for MBC2, 3 for MBC3
 	self.RomBank = 1 		-- The current ROM bank stored in 0x4000 to 0x7FFF
@@ -191,15 +191,15 @@ function mt:Initialize()
 end
 
 function mt:KeyChanged( key, bool )
-	if key == "Start" then self.ButtonByte = (bool and self.ButtonByte&(15 - 8) or self.ButtonByte|8 ) end
-	if key == "Select" then self.ButtonByte = (bool and self.ButtonByte&(15 - 4) or self.ButtonByte|4 ) end
-	if key == "B" then self.ButtonByte = (bool and self.ButtonByte&(15 - 2) or self.ButtonByte|2 ) end
-	if key == "A" then self.ButtonByte = (bool and self.ButtonByte&(15 - 1) or self.ButtonByte|1 ) end
-
-	if key == "Down" then self.DPadByte = (bool and self.DPadByte&(15 - 8) or self.DPadByte|8 ) end
-	if key == "Up" then self.DPadByte = (bool and self.DPadByte&(15 - 4) or self.DPadByte|4 ) end
-	if key == "Left" then self.DPadByte = (bool and self.DPadByte&(15 - 2) or self.DPadByte|2 ) end
-	if key == "Right" then self.DPadByte = (bool and self.DPadByte&(15 - 1) or self.DPadByte|1 ) end
+	if key == "Start" then self.ButtonByte = (bool and  bit.band(self.ButtonByte,(15 - 8)) or bit.bor(self.ButtonByte,8) ) end
+	if key == "Select" then self.ButtonByte = (bool and bit.band(self.ButtonByte,(15 - 4)) or bit.bor(self.ButtonByte,4) ) end
+	if key == "B" then self.ButtonByte = (bool and      bit.band(self.ButtonByte,(15 - 2)) or bit.bor(self.ButtonByte,2) ) end
+	if key == "A" then self.ButtonByte = (bool and      bit.band(self.ButtonByte,(15 - 1)) or bit.bor(self.ButtonByte,1) ) end
+                                              
+	if key == "Down" then self.DPadByte = (bool and     bit.band(self.DPadByte,(15 - 8)) or bit.bor(self.DPadByte,8) ) end
+	if key == "Up" then self.DPadByte = (bool and       bit.band(self.DPadByte,(15 - 4)) or bit.bor(self.DPadByte,4) ) end
+	if key == "Left" then self.DPadByte = (bool and     bit.band(self.DPadByte,(15 - 2)) or bit.bor(self.DPadByte,2) ) end
+	if key == "Right" then self.DPadByte = (bool and    bit.band(self.DPadByte,(15 - 1)) or bit.bor(self.DPadByte,1) ) end
 end
 
 
@@ -317,7 +317,7 @@ function mt:Step()
 	-- Divider, consider changing this to subtract 256 from Divider Cycles rather than setting to 0, test this as it might boost compatability.
 	self.DividerCycles = self.DividerCycles + Cycle
 	while self.DividerCycles > 255 do
-		self.Divider = (self.Divider + 1) & 0xFF
+		self.Divider = bit.band((self.Divider + 1) , 0xFF)
 		self.DividerCycles = self.DividerCycles - 256
 	end
 
@@ -329,7 +329,7 @@ function mt:Step()
 			self.TimerCycles = self.TimerCycles - self.TimerCounter
 			if self.Timer > 255 then -- if the timer overflows, reset the timer and do the timer interupt. 
 				self.Timer = self.TimerBase
-				self.IF = self.IF|4
+				self.IF = bit.bor(self.IF,4)
 			end
 		end
 	end
@@ -359,19 +359,19 @@ function mt:Step()
 
 		if ScanlineY >= 145 and ScanlineY <= 153 then
 
-			if Mode ~= 1 and self.ModeOneInterupt then self.IF = self.IF|2 end -- request LCD interupt for entering Mode 1
-			if Mode ~= 1 and ScanlineY == 145 then self.IF = self.IF|1 end -- Reques VBlank
+			if Mode ~= 1 and self.ModeOneInterupt then self.IF = bit.bor(self.IF,2) end -- request LCD interupt for entering Mode 1
+			if Mode ~= 1 and ScanlineY == 145 then self.IF = bit.bor(self.IF,1) end -- Reques VBlank
 			Mode = 1
 
 		elseif ScanlineY >= 0 and ScanlineY <= 144 then -- not vblank
 
 			if ScanCycle >= 1 and ScanCycle <= 80 then
-				if Mode ~= 2 and self.ModeTwoInterupt then self.IF = self.IF|2 end -- request LCD interupt for entering Mode 2
+				if Mode ~= 2 and self.ModeTwoInterupt then self.IF = bit.bor(self.IF,2) end -- request LCD interupt for entering Mode 2
 				Mode = 2
 			elseif ScanCycle >= 81 and ScanCycle <= 252 then
 				Mode = 3
 			elseif ScanCycle >= 253 and ScanCycle <= 456 then
-				if Mode ~= 0 and self.ModeZeroInterupt then self.IF = self.IF|2 end -- request LCD interupt for entering Mode 0
+				if Mode ~= 0 and self.ModeZeroInterupt then self.IF = bit.bor(self.IF,2) end -- request LCD interupt for entering Mode 0
 				Mode = 0
 			end
 
@@ -388,7 +388,7 @@ function mt:Step()
 
 
 	if ScanlineY == self.CompareY and self.CoincidenceInterupt then
-		self.IF = self.IF|2 -- request LCD interrupt
+		self.IF = bit.bor(self.IF,2) -- request LCD interrupt
 	end
 
 
@@ -396,63 +396,63 @@ function mt:Step()
 
 
 	if self.IME and self.IE > 0 and self.IF > 0 then
-		if (self.IE&1 == 1) and (self.IF&1 == 1) then --VBlank interrupt
+		if (bit.band(self.IE,1) == 1) and (bit.band(self.IF,1) == 1) then --VBlank interrupt
 			--self:EnableDebugging()
 			self.IME = false
 			self.Halt = false
 
-			self.IF = self.IF&(255 - 1)
+			self.IF = bit.band(self.IF,(255 - 1))
 
 			self.SP = self.SP - 2
-			self:Write(self.SP + 1, ((self.PC) & 0xFF00)>>8)
-			self:Write(self.SP    , (self.PC) & 0xFF       )
+			self:Write(self.SP + 1, bit.rshift(bit.band((self.PC) , 0xFF00),8))
+			self:Write(self.SP    , bit.band((self.PC) , 0xFF)     )
 
 			self.PC = 0x40
-		elseif (self.IE&2 == 2) and (self.IF&2 == 2) then -- LCD Interrupt
+		elseif (bit.band(self.IE,2) == 2) and (bit.band(self.IF,2) == 2) then -- LCD Interrupt
 			self.IME = false
 			self.Halt = false
 
-			self.IF = self.IF&(255 - 2)
+			self.IF = bit.band(self.IF,(255 - 2))
 
 			self.SP = self.SP - 2
-			self:Write(self.SP + 1, ((self.PC) & 0xFF00)>>8)
-			self:Write(self.SP    , (self.PC) & 0xFF       )
+			self:Write(self.SP + 1, bit.rshift(bit.band((self.PC) , 0xFF00),8))
+			self:Write(self.SP    , bit.band((self.PC) , 0xFF )      )
 
 			self.PC = 0x48
-		elseif (self.IE&4 == 4) and (self.IF&4 == 4) then -- TImer Interrupt
+		elseif (bit.band(self.IE,4) == 4) and (bit.band(self.IF,4) == 4) then -- TImer Interrupt
 
 			self.IME = false
 			self.Halt = false
 
-			self.IF = self.IF&(255 - 4)
+			self.IF = bit.band(self.IF,(255 - 4))
 
 			self.SP = self.SP - 2
-			self:Write(self.SP + 1, ((self.PC) & 0xFF00)>>8)
-			self:Write(self.SP    , (self.PC) & 0xFF       )
+			self:Write(self.SP + 1, bit.rshift(bit.band((self.PC) , 0xFF00),8))
+			self:Write(self.SP    , bit.band((self.PC) , 0xFF )      )
 
 			self.PC = 0x50
-		elseif (self.IE&8 == 8) and (self.IF&8 == 8) then -- Serial Interrupt
+		elseif (bit.band(self.IE,8) == 8) and (bit.band(self.IF,8) == 8) then -- Serial Interrupt
 
 			self.IME = false
 			self.Halt = false
 
-			self.IF = self.IF&(255 - 8)
+			self.IF = bit.band(self.IF,(255 - 8))
 
 			self.SP = self.SP - 2
-			self:Write(self.SP + 1, ((self.PC) & 0xFF00)>>8)
-			self:Write(self.SP    , (self.PC) & 0xFF       )
+			self:Write(self.SP + 1, bit.rshift(bit.band((self.PC) , 0xFF00),8))
+			self:Write(self.SP    , bit.band((self.PC) , 0xFF )      )
 
 			self.PC = 0x58
-		elseif (self.IE&16 == 16) and (self.IF&16 == 16) then -- Joy Interrupt
+		elseif (bit.band(self.IE,16) == 16) and (bit.band(self.IF,16) == 16) then -- Joy Interrupt
 
 			self.IME = false
 			self.Halt = false
 
-			self.IF = self.IF&(255 - 16)
+			self.IF = bit.band(self.IF,(255 - 16)) 
 
 			self.SP = self.SP - 2
-			self:Write(self.SP + 1, ((self.PC) & 0xFF00)>>8)
-			self:Write(self.SP    , (self.PC) & 0xFF       )
+			self:Write(self.SP + 1, bit.rshift(bit.band((self.PC) , 0xFF00),8))
+			self:Write(self.SP    , bit.band((self.PC) , 0xFF)       )
 
 			self.PC = 0x60
 		end
@@ -523,7 +523,7 @@ function mt:oldDraw()
 	if self.BGEnable then
 
 		local PalMem = VRAM[ 0xFF47 ]
-		local BGPal = { (PalMem>>2)&3, (PalMem>>4)&3, (PalMem>>6)&3 }; BGPal[0] = (PalMem)&3
+		local BGPal = { (bit.rshift(PalMem,2))&3, (bit.rshift(PalMem,4))&3, (bit.rshift(PalMem,6))&3 }; BGPal[0] = (PalMem)&3
 
 		local TileX = math_floor(self.ScrollX/8)
 		local TileY = math_floor(self.ScrollY/8)
@@ -540,8 +540,8 @@ function mt:oldDraw()
 
 				if (iy < WindowY or jx < WindowX) or not self.WindowEnable then
 
-					local ii = iy & 0x1F
-					local jj = jx & 0x1F
+					local ii = bit.band(iy,0x1F)
+					local jj = bit.band(jx,0x1F)
 
 					local TileID = 0
 						
@@ -549,7 +549,7 @@ function mt:oldDraw()
 						TileID = VRAM[ TileMap + ii*32 + jj ]
 					else
 						TileID = VRAM[ TileMap + ii*32 + jj ]
-						TileID = (TileID&127) - (TileID&128)
+						TileID = (bit.band(TileID,127)) - (bit.band(TileID,128))
 						TileData = 0x9000
 					end
 
@@ -560,15 +560,15 @@ function mt:oldDraw()
 
 						for l = 0,7 do
 
-							local BitA = (ByteA>>l)&1 --that's a lower-case L, not a 1
-							local BitB = (ByteB>>l)&1
+							local BitA = (bit.rshift(ByteA,l))&1 --that's a lower-case L, not a 1
+							local BitB = (bit.rshift(ByteB,l))&1
 								
 							local PixelX = (jx*8 - l + 9	) - self.ScrollX
 							local PixelY = (iy*8 + k + 2) - self.ScrollY
 
 							if PixelX >= 0 and PixelX < 162 and PixelY >= 0 and PixelY < 146 then
 
-								local Colour = self.ColourDB[ BGPal[ (BitB<<1) |  BitA] ]
+								local Colour = self.ColourDB[ BGPal[ (bit.lshift(BitB,1)) |  BitA] ]
 
 								local ArrayCoords = (PixelX + 1) + (PixelY + 1)*170
 
@@ -596,7 +596,7 @@ function mt:oldDraw()
 			local YMax = math_floor((144 - WindowY)/8)
 
 			local PalMem = VRAM[ 0xFF47 ]
-			local WinPal = { (PalMem>>2)&3, (PalMem>>4)&3, (PalMem>>6)&3 }; WinPal[0] = (PalMem)&3
+			local WinPal = { (bit.rshift(PalMem,2))&3, (bit.rshift(PalMem,4))&3, (bit.rshift(PalMem,6))&3 }; WinPal[0] = (PalMem)&3
 
 			local WinMap = self.WindowMap
 			local TileData = self.TileData
@@ -613,7 +613,7 @@ function mt:oldDraw()
 							TileID = VRAM[ WinMap + i*32 + j ]
 						else
 							TileID = VRAM[ WinMap + i*32 + j ]
-							TileID = (TileID&127) - (TileID&128)
+							TileID = (bit.band(TileID,127)) - (bit.band(TileID,128))
 							TileData = 0x9000
 						end
 
@@ -624,15 +624,15 @@ function mt:oldDraw()
 
 							for l = 0,7 do
 
-								local BitA = (ByteA>>l)&1 --that's a lower-case L, not a 1
-								local BitB = (ByteB>>l)&1
+								local BitA = (bit.rshift(ByteA,l))&1 --that's a lower-case L, not a 1
+								local BitB = (bit.rshift(ByteB,l))&1
 									
 								local PixelX = (j*8 - l + 9 ) + WindowX 
 								local PixelY = (i*8 + k + 3 - 8) + WindowY
 
 								if PixelX >= 0 and PixelX < 162 and PixelY >= 0 and PixelY < 146 then
 
-									local Colour = self.ColourDB[ WinPal[ (BitB<<1) |  BitA] ]
+									local Colour = self.ColourDB[ WinPal[ (bit.lshift(BitB,1)) |  BitA] ]
 
 									local ArrayCoords = (PixelX + 1) + (PixelY + 1)*170
 
@@ -660,7 +660,7 @@ function mt:oldDraw()
 	local PalMem2 = self.Memory[ 0xFF48 ]
 
 	for n = 0, 159, 4 do
-		local YPos = self.Memory[ 0xFE00 | n ]
+		local YPos = self.Memory[ bit.bor(0xFE00,n) ]
 		if YPos > 0 and YPos < 160 then
 			local XPos = self.Memory[ 0xFE00 | (n+1) ]
 			if XPos > 0 and XPos < 168 then
@@ -668,15 +668,15 @@ function mt:oldDraw()
 				local SpriteFlags = self.Memory[ 0xFE00 | (n+3) ]
 				
 				local TileID = self.Memory[ 0xFE00 | (n+2) ]
-				local Alpha =  (SpriteFlags  & 128) == 128
-				local YFlip = (SpriteFlags & 64)    == 64
-				local XFlip = (SpriteFlags & 32)    == 32
-				local SPalID = (SpriteFlags & 16)   == 16
+				local Alpha =  (bit.band(SpriteFlags,128)) == 128
+				local YFlip = (bit.band(SpriteFlags,64))    == 64
+				local XFlip = (bit.band(SpriteFlags,32))    == 32
+				local SPalID = (bit.band(SpriteFlags,16))   == 16
 
 				if SPalID then
-					SpPal = { (PalMem1>>2)&3, (PalMem1>>4)&3, (PalMem1>>6)&3 }
+					SpPal = { (bit.rshift(PalMem1,2))&3, (bit.rshift(PalMem1,4))&3, (bit.rshift(PalMem1,6))&3 }
 				else
-					SpPal = { (PalMem2>>2)&3, (PalMem2>>4)&3, (PalMem2>>6)&3 }
+					SpPal = { (bit.rshift(PalMem2,2))&3, (bit.rshift(PalMem2,4))&3, (bit.rshift(PalMem2,6))&3 }
 				end
 
 
@@ -687,17 +687,17 @@ function mt:oldDraw()
 
 					for j = 0,7 do
 
-						local BitA = (ByteA>>j)&1 
-						local BitB = (ByteB>>j)&1
+						local BitA = (bit.rshift(ByteA,j))&1 
+						local BitB = (bit.rshift(ByteB,j))&1
 
-						if ((BitB<<1) |  BitA) > 0 then
+						if ((bit.lshift(BitB,1)) |  BitA) > 0 then
 
 							local PixelX = XPos + 1 + (XFlip and j - 7 or -j)
 							local PixelY = YPos - 16 + 2 + (YFlip and -i + 7 or i)
 
 							local ArrayCoords = (PixelX + 1) + (PixelY + 1)*170
 							
-							local Colour = self.ColourDB[ SpPal[ (BitB<<1) |  BitA] ]
+							local Colour = self.ColourDB[ SpPal[ (bit.lshift(BitB,1)) |  BitA] ]
 
 							if PixelX >= 0 and PixelX < 162 and PixelY >= 0 and PixelY < 146 then
 
@@ -742,8 +742,8 @@ function mt:oldDraw()
 
 			for k = 7,0,-1 do
 
-				local BitA = (ByteA>>k)&1
-				local BitB = (ByteB>>k)&1
+				local BitA = (bit.rshift(ByteA,k))&1
+				local BitB = (bit.rshift(ByteB,k))&1
 
 				local Colour = self.ColourDB[(BitA + BitB)]
 
@@ -895,7 +895,7 @@ end
 
 function mt:Read(Addr)
 
-	local TAddr = 0xF000&Addr
+	local TAddr = bit.band(0xF000,Addr)
 	
 
 	-- first 4KB of Bank 0 ROM, clause for readin the Bios.
@@ -958,7 +958,7 @@ end
 function mt:Write(Addr,Data)
 
 
-	local TAddr = 0xF000&Addr
+	local TAddr = bit.band(0xF000,Addr)
 	
 	-- ROM 0
 	if Taddr == 0x000 or TAddr == 0x1000 or TAddr == 0x2000 or TAddr == 0x3000 then
@@ -1009,9 +1009,9 @@ function mt:Write(Addr,Data)
 		elseif Addr == 0xFF07 then --Timer Control Register
 			self.Memory[Addr] = Data --Not sure if any game would actually read timer but better to be safe than sorry
 
-			self.TimerCounter = self.TimerDB[Data & 0x3]  -- This is set to the first 2 bits of data based on the lookup of timerTB
+			self.TimerCounter = self.TimerDB[bit.band(Data,0x3)]  -- This is set to the first 2 bits of data based on the lookup of timerTB
 
-			self.TimerEnabled = Data & 0x4 == 0x4 -- Disables the timer based on the value of the 3rd bit.
+			self.TimerEnabled = bit.band(Data,0x4) == 0x4 -- Disables the timer based on the value of the 3rd bit.
 
 
 		elseif Addr >= 0xFF80 and Addr <= 0xFFFE then

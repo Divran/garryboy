@@ -24,6 +24,21 @@ function ENT:SpawnFunction( ply, tr )
 	return ent	
 end
 
+function SpawnFunction( ply, tr )
+	if not tr.Hit then return end
+	if not ply:CheckLimit( "gem_emulators" ) then return end
+
+	local pos = tr.HitPos + tr.HitNormal * 50
+	local ent = ents.Create( "gem_emulator" )
+	ent:SetPly( ply )
+	ent:SetPos( pos )
+	ent:SetAngles( Angle(90,ply:GetAngles().y+180,0) )
+	ent:Spawn()
+	ent:Activate()
+	
+	return ent	
+end
+
 ----------------------------------------------------------------------
 -- Name: Initialize
 -- Desc: -

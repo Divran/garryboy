@@ -67,14 +67,14 @@ local function RomBankNumber( self, Addr, Data )
 	if Data == 0 then Data = 1 end
 
 	if self.CartMBCMode == 3 then
-		self.RomBank = Data&127
+		self.RomBank = bit.band(Data,127)
 	end
 end
 
 local function RamBankNumber( self, Addr, Data )
 
 	if self.CartMBCMode == 3 and Data < 4 then
-		self.RamBank = Data&3
+		self.RamBank = bit.band(Data,3)
 	end
 end
 
@@ -120,9 +120,9 @@ MWrite[ 0xFF04 ] = function( self, Addr, Data ) self.Divider = 0 end -- Divider 
 MWrite[ 0xFF05 ] = function( self, Addr, Data ) self.Timer = Data end -- Set timer
 MWrite[ 0xFF06 ] = function( self, Addr, Data ) self.TimerBase = Data end -- Set timer base
 MWrite[ 0xFF07 ] = function( self, Addr, Data )
-	self.Memory[ 0xFF07 ] = Data&5 -- Better Safe than sorry
-	self.TimerCounter = self.TimerDB[(Data & 0x3)] -- Set the timer incriment rate to the first 2 bits with a lookup DB
-	self.TimerEnabled = Data & 0x4 == 0x4 -- 3rd byte enables/disables the timer
+	self.Memory[ 0xFF07 ] = bit.band(Data,5) -- Better Safe than sorry
+	self.TimerCounter = self.TimerDB[(bit.band(Data,0x3))] -- Set the timer incriment rate to the first 2 bits with a lookup DB
+	self.TimerEnabled = bit.band(Data,0x4) == 0x4 -- 3rd byte enables/disables the timer
 end
 
 
@@ -162,14 +162,14 @@ MWrite[ 0xFF40 ] = function( self, Addr, Data )
 
 	self.Memory[Addr] = Data
 
-	self.LCDEnable = 128&Data == 128
-	self.WindowMap = (64&Data == 64 and 0x9C00 or 0x9800)
-	self.WindowEnable = 32&Data == 32
-	self.TileData = (16&Data == 16 and 0x8000 or 0x8800)
-	self.BGMap =(8&Data == 8 and 0x9C00 or 0x9800)
-	self.SpriteSize = (4&Data == 4 and 16 or 8)
-	self.SpriteEnable = 2&Data == 2
-	self.BGEnable = 1&Data == 1
+	self.LCDEnable = bit.band(128,Data) == 128
+	self.WindowMap = (bit.band(64,Data) == 64 and 0x9C00 or 0x9800)
+	self.WindowEnable = bit.band(32,Data) == 32
+	self.TileData = (bit.band(16,Data) == 16 and 0x8000 or 0x8800)
+	self.BGMap =(bit.band(8,Data) == 8 and 0x9C00 or 0x9800)
+	self.SpriteSize = (bit.band(4,Data) == 4 and 16 or 8)
+	self.SpriteEnable = bit.band(2,Data) == 2
+	self.BGEnable = bit.band(1,Data) == 1
 
 end
 
@@ -177,21 +177,21 @@ end
 
 MRead[ 0xFF41 ] = function( self, Addr )
 	local Mem1 = 0
-	Mem1 = Mem1 | (self.CoincidenceInterupt and 64 or 0) 
-	Mem1 = Mem1 | (self.ModeTwoInterupt and 32 or 0)
-	Mem1 = Mem1 | (self.ModeOneInterupt and 16 or 0)
-	Mem1 = Mem1 | (self.ModeZeroInterupt and 8 or 0)
-	Mem1 = Mem1 | (self.CompareY == self.ScanlineY and 4 or 0)
-	Mem1 = Mem1 | (self.Mode&3)
+	Mem1 = bit.bor(Mem1 , (self.CoincidenceInterupt and 64 or 0)       )
+	Mem1 = bit.bor(Mem1 , (self.ModeTwoInterupt and 32 or 0)           )
+	Mem1 = bit.bor(Mem1 , (self.ModeOneInterupt and 16 or 0)           )
+	Mem1 = bit.bor(Mem1 , (self.ModeZeroInterupt and 8 or 0)           )
+	Mem1 = bit.bor(Mem1 , (self.CompareY == self.ScanlineY and 4 or 0) )
+	Mem1 = bit.bor(Mem1 , (bit.band(self.Mode,3))                      )
 
 	return Mem1
 end
 
 MWrite[ 0xFF41 ] = function( self, Addr, Data )
-	self.CoincidenceInterupt = 64&Data == 64
-	self.ModeTwoInterupt = 32&Data == 32
-	self.ModeOneInterupt = 16&Data == 16
-	self.ModeZeroInterupt = 8&Data == 8
+	self.CoincidenceInterupt = bit.band(64,Data) == 64
+	self.ModeTwoInterupt = bit.band(32,Data) == 32
+	self.ModeOneInterupt = bit.band(16,Data) == 16
+	self.ModeZeroInterupt = bit.band(8,Data) == 8
 end
 
 
@@ -206,8 +206,8 @@ MRead[ 0xFF00 ]= function( self, Addr )
 end
 
 MWrite[ 0xFF00 ] = function( self, Addr, Data )
-	self.SelectDirectionKeys = Data&16 == 16 
-	self.SelectButtonKeys = Data&32 == 32
+	self.SelectDirectionKeys = bit.band(Data,16) == 16 
+	self.SelectButtonKeys = bit.band(Data,32) == 32
 end
 
 
@@ -216,10 +216,10 @@ end
 MRead[ 0xFF46 ]= function( self, Addr ) return 0 end
 
 MWrite[ 0xFF46 ] = function( self, Addr, Data )
-	DMAddr = (Data<<8)
+	DMAddr = (bit.lshift(Data,8))
 
 	for n = 0, 0xA0 do
-		self.Memory[ 0xFE00 | n ] = self.Memory[ DMAddr | n ]
+		self.Memory[ bit.bor(0xFE00,n) ] = self.Memory[ bit.bor(DMAddr,n) ]
 	end
 end
 
@@ -235,11 +235,11 @@ end
 
 -- Interupt Enable
 MRead[ 0xFFFF ] = function( self, Addr ) return self.IE end
-MWrite[ 0xFFFF ] = function( self, Addr, Data ) self.IE = (Data & 0x1F) end
+MWrite[ 0xFFFF ] = function( self, Addr, Data ) self.IE = (bit.band(Data,0x1F)) end
 
 -- Interupt Request
 MRead[ 0xFF0F ] = function( self, Addr )  return self.IF end
-MWrite[ 0xFF0F ] = function( self, Addr, Data ) self.IF = (Data & 0x1F) end
+MWrite[ 0xFF0F ] = function( self, Addr, Data ) self.IF = (bit.band(Data,0x1F)) end
 
 
 
@@ -284,31 +284,31 @@ for n = 0xFF80, 0xFFFE 	do MWrite[n] = WriteHighRam end
 
 -- Sweep (Channel 1)
 MWrite[ 0xFF13 ] = function(self, Addr, Data)
-	self.SweepFreq = (self.SweepFreq & 0x700) + Data
+	self.SweepFreq = (bit.band(self.SweepFreq,0x700)) + Data
 end
 
 MWrite[ 0xFF14 ] = function(self, Addr, Data)
-	self.SweepFreq = (self.SweepFreq & 0xFF) + ((Data<<8) & 0x700)
-	self.SweepTimerEnable = Data&64 == 64
+	self.SweepFreq = (bit.band(self.SweepFreq,0xFF)) + bit.band((bit.lshift(Data,8)) , 0x700)
+	self.SweepTimerEnable = bit.band(Data,64) == 64
 end
 
 MWrite[ 0xFF11 ] = function(self, Addr, Data)
-	self.SweepTimer = 0x3F & Data
+	self.SweepTimer = bit.band(0x3F,Data)
 end
 
 
 -- Tone (Channel 2)
 MWrite[ 0xFF18 ] = function(self, Addr, Data)
-	self.ToneFreq = (self.ToneFreq & 0x700) + Data
+	self.ToneFreq = (bit.band(self.ToneFreq,0x700)) + Data
 end
 
 MWrite[ 0xFF19 ] = function(self, Addr, Data)
-	self.ToneFreq = (self.ToneFreq & 0xFF) + ((Data<<8) & 0x700)
-	self.ToneTimerEnable = Data&64 == 64
+	self.ToneFreq = (bit.band(self.ToneFreq,0xFF)) + bit.band((bit.lshift(Data,8)) , 0x700)
+	self.ToneTimerEnable = bit.band(Data,64) == 64
 end
 
 MWrite[ 0xFF16 ] = function(self, Addr, Data)
-	self.ToneTimer = 0x3F & Data
+	self.ToneTimer = bit.band(0x3F,Data)
 end
 
 
@@ -343,7 +343,7 @@ end
 
 
 
-
+ 
 
 
 

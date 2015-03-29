@@ -18,6 +18,7 @@ function gem.New( ent, ROMstring, emulatortype )
 	new.ROMstring = ROMstring
 	new.emulatortype = emulatortype
 	new.RTMaterial = rt
+	new.History = {}
 	new:ClearRT()
 	
 	if emulatortype == "GBZ80" then
@@ -243,7 +244,7 @@ end)
 -- Desc: Dump history to file
 ----------------------------------------------------------------------
 function gem.mt:DumpHistory()
-	if not file.IsDir( "gem_emulator" ) then file.CreateDir( "gem_emulator" ) end
+	if not file.IsDir( "gem_emulator", 'DATA' ) then file.CreateDir( "gem_emulator" ) end
 	file.Write( "gem_emulator/history.txt", table.concat( self.History, "\n" ) )
 end
 
