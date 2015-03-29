@@ -8,7 +8,7 @@ local string_sub = string.sub
 -- Desc: Sets/Resets all registers
 ----------------------------------------------------------------------
 function mt:Restart()
-	-- Memory & Ports
+	-- bit.band(Memory,Ports)
 	self.Memory = {}
 	for N = 0, 0xFFFF do self.Memory[N] = 0 end
 	self:LoadRom()
@@ -88,12 +88,12 @@ function mt:Draw()
 		local byte = self.Memory[i]
 		for j = 0, 7 do	
 			pos = pos + 1
-			local bit = 1 << j
-			if (bit & byte) ~= 0 then	
+			local bit2 = bit.lshift(1,j)
+			if (bit.band(bit2,byte)) ~= 0 then	
 				local y = pos/256
 				local x = pos % 256
 				--surface_SetDrawColor( x,0,-x+255,255 )
-				surface_DrawRect( y*2+30,-x*2+512, 2, 2 ) 
+				surface_DrawRect( y+15,-x+256, 2, 2 ) 
 			end 
 		end
 	end
@@ -146,15 +146,15 @@ end
 
 function mt:KeyChanged( key, bool )
 	if key == "Select" then
-		self.InPort[1] = bool and self.InPort[1]|1 or self.InPort[1]&(0xFF-1)
+		self.InPort[1] = bool and bit.bor(self.InPort[1],1) or bit.band(self.InPort[1],(0xFF-1))
 	elseif key == "Start" then
-		self.InPort[1] = bool and self.InPort[1]|4 or self.InPort[1]&(0xFF-4)
+		self.InPort[1] = bool and bit.bor(self.InPort[1],4) or  bit.band(self.InPort[1],(0xFF-4))
 	elseif key == "A" then
-		self.InPort[1] = bool and self.InPort[1]|16 or self.InPort[1]&(0xFF-16)
+		self.InPort[1] = bool and bit.bor(self.InPort[1],16) or bit.band(self.InPort[1],(0xFF-16))
 	elseif key == "Left" then
-		self.InPort[1] = bool and self.InPort[1]|32 or self.InPort[1]&(0xFF-32)
+		self.InPort[1] = bool and bit.bor(self.InPort[1],32) or bit.band(self.InPort[1],(0xFF-32))
 	elseif key == "Right" then
-		self.InPort[1] = bool and self.InPort[1]|64 or self.InPort[1]&(0xFF-64)
+		self.InPort[1] = bool and bit.bor( self.InPort[1],64) or bit.band(self.InPort[1],(0xFF-64))
 	end
 end
 
@@ -254,7 +254,7 @@ end
 
 function mt:D16()
 
-	return (self.Memory[self.PC+2]<<8) + self.Memory[self.PC+1]
+	return bit.lshift(self.Memory[self.PC+2],8) + self.Memory[self.PC+1]
 end
 
 function mt:F()
@@ -262,27 +262,27 @@ function mt:F()
 end
 
 function mt:RestoreFlags( Val )
-	self.Cf = (1&Val) ~= 0 and 1 or 0
-	self.Hf = (16&Val) ~= 0 and 1 or 0
-	self.IE = (32&Val) ~= 0 and 1 or 0
-	self.Zf = (64&Val) ~= 0 and 1 or 0
-	self.Sf = (128&Val) ~= 0 and 1 or 0
+	self.Cf = (bit.band(1,Val)) ~= 0 and 1 or 0
+	self.Hf = (bit.band(16,Val)) ~= 0 and 1 or 0
+	self.IE = (bit.band(32,Val)) ~= 0 and 1 or 0
+	self.Zf = (bit.band(64,Val)) ~= 0 and 1 or 0
+	self.Sf = (bit.band(128,Val)) ~= 0 and 1 or 0
 end
 
 function mt:AF()
-	return (self.A<<8) | self:F()
+	return bit.bor((bit.lshift(self.A,8)) , self:F())
 end
 	
 function mt:HL()  
-	return (self.H<<8) | self.L
+	return bit.bor((bit.lshift(self.H,8)) , self.L)
 end
 
 function mt:BC()
-	return (self.B<<8) | self.C
+	return bit.bor((bit.lshift(self.B,8)) , self.C)
 end
 
 function mt:DE()
-	return (self.D<<8) | self.E
+	return bit.bor((bit.lshift(self.D,8)) , self.E)
 end
 
 --			  --Operation Functions--
@@ -318,8 +318,8 @@ end
 function mt:Call(Val)
 	if Val then
 		self.SP = self.SP - 2
-		self.Memory[self.SP + 1] = ((self.PC+3)&0xFF00)>>8
-		self.Memory[self.SP]	 = (self.PC+3)&0xFF
+		self.Memory[self.SP + 1] = bit.rshift(bit.band((self.PC+3),0xFF00),8)
+		self.Memory[self.SP]	 = bit.band((self.PC+3),0xFF)
 		self.PC = self:D16()
 		--self.Cycles = self.Cycles + 7
 	else
@@ -330,7 +330,7 @@ end
 -- Return
 function mt:Return(Val)
 	if Val then
-		self.PC = (self.Memory[self.SP + 1]<<8) + self.Memory[self.SP]
+		self.PC = bit.lshift(self.Memory[self.SP + 1],8) + self.Memory[self.SP]
 		self.SP = self.SP + 2
 		--self.Cycles = self.Cycles + 6
 	else
@@ -341,8 +341,8 @@ end
 -- Reset
 function mt:ResetCPU(Addr)
 	self.SP = self.SP - 2
-	self.Memory[self.SP + 1] = ((self.PC)&0xFF00)>>8
-	self.Memory[self.SP]	 = (self.PC)&0xFF
+	self.Memory[self.SP + 1] = bit.rshift(bit.band((self.PC),0xFF00),8)
+	self.Memory[self.SP]	 = bit.band((self.PC),0xFF)
 	self.PC = Addr
 end
 
@@ -350,122 +350,122 @@ end
 -- 8Bit Inc
 function mt:ByteInc(R1)
 	R1 = R1+1
-	self.Cf = (256&R1) ~= 0 and 1 or 0
-	R1 = R1&0xFF
+	self.Cf = (bit.band(256,R1)) ~= 0 and 1 or 0
+	R1 = bit.band(R1,0xFF)
 	self.Zf = (R1) == 0 and 1 or 0
-	self.Sf = R1&128 ~= 0 and 1 or 0
+	self.Sf = bit.band(R1,128) ~= 0 and 1 or 0
 	self.PC = self.PC + 1
 	
-	self.Hf = (((R1&15) + ((R1+1)&15))& 32) > 0 and 1 or 0
+	self.Hf = bit.band(((bit.band(R1,15)) + bit.band((R1+1),15)), 32) > 0 and 1 or 0
 	return R1
 end
 
 -- 16Bit Inc
 function mt:WordInc(R1,R2)
 	self.PC = self.PC + 1
-	R2 = (R2+1)&0xFF
-	if R2 == 0 then R1 = (R1+1)&0xFF end
+	R2 = bit.band((R2+1),0xFF)
+	if R2 == 0 then R1 = bit.band((R1+1),0xFF) end
 	return R1, R2	
 end
 
 -- 8Bit Dec
 function mt:ByteDec(R1)
-	R1 = (R1-1)&0xFF
+	R1 = bit.band((R1-1),0xFF)
 	self.Zf = R1 == 0 and 1 or 0
-	self.Sf = R1&128 ~= 0 and 1 or 0
+	self.Sf = bit.band(R1,128) ~= 0 and 1 or 0
 	self.Cf = 0
 	self.PC = self.PC + 1
 	
-	self.Hf = (((R1&15) + ((R1-1)&15))& 32) > 0 and 1 or 0
+	self.Hf = bit.band(((bit.band(R1,15)) + bit.band((R1-1),15)), 32) > 0 and 1 or 0
 	return R1
 end
 
 -- 16Bit Dec
 function mt:WordDec(R1,R2)
-	R2 = (R2-1)&0xFF
-	if R2 == 0xFF then R1 = (R1-1)&0xFF end
+	R2 = bit.band((R2-1),0xFF)
+	if R2 == 0xFF then R1 = bit.band((R1-1),0xFF) end
 	self.PC = self.PC + 1
 	return R1, R2
 end
 
 -- Logical AND
 function mt:And(R1)
-	self.A = self.A&R1
+	self.A = bit.band(self.A,R1)
 	self.Cf = 0
 	self.Hf = 0
 	self.Zf = self.A == 0 and 1 or 0
-	self.Sf = R1&128 ~= 0 and 1 or 0
+	self.Sf = bit.band(R1,128) ~= 0 and 1 or 0
 	self.PC = self.PC + 1
 end
 
 --Logical OR
 function mt:Or(R1)
-	self.A = self.A|R1
+	self.A = bit.bor(self.A,R1)
 	self.Cf = 0
 	self.Hf = 0
 	self.Zf = self.A == 0 and 1 or 0
-	self.Sf = self.A&128 ~= 0 and 1 or 0
+	self.Sf = bit.band(self.A,128) ~= 0 and 1 or 0
 	self.PC = self.PC + 1
 end
 
 -- Logical Xor
 function mt:Xor(R1)
-	self.A = (self.A | R1) & (-1-(self.A & R1))
+	self.A = bit.band((bit.bor(self.A,R1)) , (-1-(bit.band(self.A,R1))))
 	self.Cf = 0
 	self.Hf = 0
 	self.Zf = self.A == 0 and 1 or 0
-	self.Sf = self.A&128 ~= 0 and 1 or 0
+	self.Sf = bit.band(self.A,128) ~= 0 and 1 or 0
 	self.PC = self.PC + 1
 end
 
 -- Arithmatic
 function mt:ByteAdd(R1)
-	self.Hf = (((self.A&15) + ((self.A+R1)&15))& 32) > 0 and 1 or 0
+	self.Hf = bit.band(((bit.band(self.A,15)) + bit.band((self.A+R1),15)), 32) > 0 and 1 or 0
 	
 	self.A = self.A + R1
-	self.Cf = (self.A&256) ~= 0 and 1 or 0
-	self.A = self.A&0xFF
+	self.Cf = (bit.band(self.A,256)) ~= 0 and 1 or 0
+	self.A = bit.band(self.A,0xFF)
 	self.Zf = self.A == 0 and 1 or 0
-	self.Sf = self.A&128 ~= 0 and 1 or 0
+	self.Sf = bit.band(self.A,128) ~= 0 and 1 or 0
 	self.PC = self.PC + 1
 end
 
 function mt:ByteSub(R1)
-	self.Hf = (((self.A&15) + ((self.A-R1)&15))& 32) > 0 and 1 or 0
+	self.Hf = bit.band(((bit.band(self.A,15)) + bit.band((self.A-R1),15)), 32) > 0 and 1 or 0
 
-	local Tmp = (self.A-R1)&0xFF
+	local Tmp = bit.band((self.A-R1),0xFF)
 	if (Tmp >= self.A) and R1 ~= 0 then
 		self.Cf = 1
 	else
 		self.Cf = 0
 	end
 	self.A = Tmp
-	self.Sf = (self.A&128) ~= 0 and 1 or 0
+	self.Sf = (bit.band(self.A,128)) ~= 0 and 1 or 0
 	self.Zf = self.A == 0 and 1 or 0
 	self.PC = self.PC + 1
 end
 
 function mt:ByteAddCarry(R1)
-	self.Hf = (((self.A&15) + ((self.A+R1+self.Cf)&15))& 32) > 0 and 1 or 0
+	self.Hf = bit.band(((bit.band(self.A,15)) + bit.band((self.A+R1+self.Cf),15)), 32) > 0 and 1 or 0
 
 	self.A = self.A + R1 + self.Cf
-	self.Cf = (self.A&256) ~= 0 and 1 or 0
-	self.A = self.A&0xFF
+	self.Cf = (bit.band(self.A,256)) ~= 0 and 1 or 0
+	self.A = bit.band(self.A,0xFF)
 	self.Zf = self.A == 0 and 1 or 0
-	self.Sf = (self.A&128) ~= 0 and 1 or 0
+	self.Sf = (bit.band(self.A,128)) ~= 0 and 1 or 0
 	self.PC = self.PC + 1
 end
 	
 function mt:ByteCmp(R1)
-	self.Hf = (((self.A&15) + ((self.A-R1)&15))& 32) > 0 and 1 or 0
+	self.Hf = bit.band(((bit.band(self.A,15)) + bit.band((self.A-R1),15)), 32) > 0 and 1 or 0
 
-	local Tmp = (self.A-R1)&0xFF
+	local Tmp = bit.band((self.A-R1),0xFF)
 	if (Tmp >= self.A) and R1 ~= 0 then
 		self.Cf = 1
 	else
 		self.Cf = 0
 	end
-	self.Sf = (Tmp&128) ~= 0 and 1 or 0
+	self.Sf = (bit.band(Tmp,128)) ~= 0 and 1 or 0
 	self.Zf = Tmp == 0 and 1 or 0
 	self.PC = self.PC + 1
 end
@@ -474,13 +474,13 @@ function mt:WordAdd(R1,R2)
 	self.H = self.H + R1
 	self.L = self.L + R2
 	
-	if self.L&0x100 == 0x100 then
+	if bit.band(self.L,0x100) == 0x100 then
 		self.H = self.H+1
-		self.L = self.L&0xFF
+		self.L = bit.band(self.L,0xFF)
 	end
 	
-	if self.H&0x100 == 0x100 then
-		self.H = self.H&0xFF
+	if bit.band(self.H,0x100) == 0x100 then
+		self.H = bit.band(self.H,0xFF)
 		self.Cf = 1
 	end
 	
@@ -494,7 +494,7 @@ end
 mt.Operators = {}
 local Operators = mt.Operators
 
--- Control & Interupt
+-- bit.band(Control,Interupt)
 Operators[0x00] = function( self ) self.PC = self.PC + 1 end -- NOP
 
 Operators[0xF3] = function( self ) -- Interupt Disable
@@ -507,7 +507,7 @@ Operators[0xFB] = function( self ) -- Interupt Enable
 	self.PC = self.PC + 1
 end
 
--- Input & Output (Special cases for shift register, Audio, High Score, Coins and Input to be done seperately)
+-- bit.band(Input,Output) (Special cases for shift register, Audio, High Score, Coins and Input to be done seperately)
 Operators[0xDB] = function ( self ) -- Read Input Port 
 	self.A = self.InPort[self.Memory[self.PC+1]]
 	self.PC = self.PC + 2
@@ -516,42 +516,42 @@ end
 
 Operators[0xD3] = function ( self ) 
 	if self:D8() == 4 then
-		self.Shift = (self.Shift>>8)|(self.A<<8)
-		self.InPort[3] = (((self.Shift<<self.Offset))>>8)&0xFF
+		self.Shift = bit.bor((bit.rshift(self.Shift,8)),(bit.lshift(self.A,8)))
+		self.InPort[3] = bit.band(bit.rshift(((bit.lshift(self.Shift,self.Offset))),8),0xFF)
 	elseif self:D8() == 2 then
-		self.Offset = self.A&7
-		self.InPort[3] = (((self.Shift<<self.Offset))>>8)&0xFF
+		self.Offset = bit.band(self.A,7)
+		self.InPort[3] = bit.band(bit.rshift(((bit.lshift(self.Shift,self.Offset))),8),0xFF)
 		
 	--SOUND STUFF
 	elseif self:D8() == 3 then
 		local OldPort3 = self.OutPort[3]
 		local Port3 = self.A
 		
-		if Port3&1 == 1 and not self.PlayingUFOSound then
+		if bit.band(Port3,1) == 1 and not self.PlayingUFOSound then
 			self.PlayingUFOSound = true
 			self.UFOSound:Play()
-		elseif Port3&1 == 0 and self.PlayingUFOSound then
+		elseif bit.band(Port3,1) == 0 and self.PlayingUFOSound then
 			self.PlayingUFOSound = false
 			self.UFOSound:Stop()
 		end
 		
-		if Port3&2 > OldPort3&2 then
+		if bit.band(Port3,2) > bit.band(OldPort3,2) then
 			self.entity:EmitSound( "gem_emulator/shot.wav" )
 		end
 		
-		if Port3&4 > OldPort3&4 then
+		if bit.band(Port3,4) > bit.band(OldPort3,4) then
 			self.entity:EmitSound( "gem_emulator/basehit.wav" )
 		end
 		
-		if Port3&8 > OldPort3&8 then
+		if bit.band(Port3,8) > bit.band(OldPort3,8) then
 			self.entity:EmitSound( "gem_emulator/invhit.wav" )
 		end
 		
-		if Port3&16 > OldPort3&16 then
+		if bit.band(Port3,16) > bit.band(OldPort3,16) then
 			self.entity:EmitSound( "gem_emulator/extralife.wav" )
 		end
 		
-		if Port3&32 > OldPort3&32 then
+		if bit.band(Port3,32) > bit.band(OldPort3,32) then
 			self.entity:EmitSound( "gem_emulator/beginplay.wav" )
 		end
 		
@@ -559,23 +559,23 @@ Operators[0xD3] = function ( self )
 		local OldPort5 = self.OutPort[5]
 		local Port5 = self.A
 	
-		if Port5&1 > OldPort5&1 then
+		if bit.band(Port5,1) > bit.band(OldPort5,1) then
 			self.entity:EmitSound( "gem_emulator/walk1.wav" )
 		end
 		
-		if Port5&2 > OldPort5&2 then
+		if bit.band(Port5,2) > bit.band(OldPort5,2) then
 			self.entity:EmitSound( "gem_emulator/walk2.wav" )
 		end
 		
-		if Port5&4 > OldPort5&4 then
+		if bit.band(Port5,4) > bit.band(OldPort5,4) then
 			self.entity:EmitSound( "gem_emulator/walk3.wav" )
 		end
 		
-		if Port5&8 > OldPort5&8 then
+		if bit.band(Port5,8) > bit.band(OldPort5,8) then
 			self.entity:EmitSound( "gem_emulator/walk4.wav" )
 		end
 		
-		if Port5&16 > OldPort5&16 then
+		if bit.band(Port5,16) > bit.band(OldPort5,16) then
 			self.entity:EmitSound( "gem_emulator/ufohit.wav" )
 		end
 	end
@@ -718,43 +718,43 @@ Operators[0xEE] = function( self ) self:Xor(self:D8()); self.PC = self.PC + 1 en
 
 -- CMA
 Operators[0x2F] = function( self )
-	self. A = (self.A | 0xFF) & (-1-(self.A & 0xFF))
+	self. A = bit.band((bit.bor(self.A,0xFF)) , (-1-(bit.band(self.A,0xFF))))
 	self.PC = self.PC + 1
 end
 
 
---Shifts & Rotates
+--bit.band(Shifts,Rotates)
 Operators[0x0F] = function( self )
-	self.A = ((self.A>>1)|(self.A<<7))&0xFF
-	self.Cf = (self.A&128) ~= 0 and 1 or 0
+	self.A = bit.band(bit.bor((bit.rshift(self.A,1)),(bit.lshift(self.A,7))),0xFF)
+	self.Cf = (bit.band(self.A,128)) ~= 0 and 1 or 0
 	self.PC = self.PC + 1
 end
 
 Operators[0x1F] = function( self )
 		-- local Tmp = self.A
-		-- self.A = (self.A>>1)
+		-- self.A = (bit.rshift(self.A,1))
 		-- if self.Cf == 1 then
-			-- self.A = (self.A|128)
-			-- self.Cf = (Tmp&1)
+			-- self.A = (bit.bor(self.A,128))
+			-- self.Cf = (bit.band(Tmp,1))
 		-- end
 		
 		local Tmp = self.Cf*128
 		
-		if self.A&1 ~= 0 then
+		if bit.band(self.A,1) ~= 0 then
 			self.Cf = 1
 		else
 			self.Cf = 0
 		end
 		
-		self.A = ((self.A&254)>>1)|Tmp
+		self.A = bit.bor(bit.rshift((bit.band(self.A,254)),1),Tmp)
 		
 		
 		self.PC = self.PC + 1
 end	
 
 Operators[0x07] = function( self )
-	self.A = ((self.A<<1)|(self.A>>7))&0xFF
-	self.Cf = (self.A&1)
+	self.A = bit.band(bit.bor((bit.lshift(self.A,1)),(bit.rshift(self.A,7))),0xFF)
+	self.Cf = (bit.band(self.A,1))
 	self.PC = self.PC + 1
 end
 
@@ -937,9 +937,9 @@ Operators[0xFE] = function( self ) self:ByteCmp(self:D8()); self.PC = self.PC + 
 -- SBBI	
 
 Operators[0xDE] = function ( self ) 
-	local Tmp = (self.A-self:D8()-self.Cf)&0xFF
+	local Tmp = bit.band((self.A-self:D8()-self.Cf),0xFF)
 	self.Cf = Tmp >= self.A and (self:D8() ~= 0 or self.Cf ~= 0) and 1 or 0
-	self.Sf = (Tmp&128) ~= 0 and 1 or 0
+	self.Sf = (bit.band(Tmp,128)) ~= 0 and 1 or 0
 	self.Zf = Tmp == 0 and 1 or 0
 	self.A = Tmp
 	self.PC = self.PC + 2
@@ -950,17 +950,17 @@ end
 Operators[0x09] = function( self ) self:WordAdd(self.B,self.C) end
 Operators[0x19] = function( self ) self:WordAdd(self.D,self.E) end
 Operators[0x29] = function( self ) self:WordAdd(self.H,self.L) end
-Operators[0x39] = function( self ) self:WordAdd((self.SP&0xFF00)>>8,self.SP&0xFF) end
+Operators[0x39] = function( self ) self:WordAdd(bit.rshift((bit.band(self.SP,0xFF00)),8),bit.band(self.SP,0xFF)) end
 
 --DAA, do this to get scores working and not glitchy
 
 Operators[0x27] = function( self ) 
 	
-	if (self.A&0xF) > 9 or self.Hf == 1 then
+	if (bit.band(self.A,0xF)) > 9 or self.Hf == 1 then 
 		self.A = self.A + 0x06
 	end
 	
-	self.Hf = (((self.A&15) + ((self.A-0x06)&15))& 32) > 0 and 1 or 0
+	self.Hf = bit.band(((bit.band(self.A,15)) + bit.band((self.A-0x06),15)), 32) > 0 and 1 or 0
 	
 	if self.A > 0x9F or self.Cf == 1 then
 		self.A = self.A + 0x60
@@ -968,11 +968,11 @@ Operators[0x27] = function( self )
 	
 	if self.A > 0xFF then
 		self.Cf = 1
-		self.A = self.A&0xFF
+		self.A = bit.band(self.A,0xFF)
 	else
 		self.Cf = 0
 	end
-	self.Sf = (self.A&128) ~= 0 and 1 or 0
+	self.Sf = (bit.band(self.A,128)) ~= 0 and 1 or 0
 	self.Zf = self.A == 0 and 1 or 0
 
 	self.PC = self.PC + 1
